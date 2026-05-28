@@ -5,10 +5,11 @@
 #include <SDL.h>
 #include <SDL_image.h>
 // #include <world.hpp>
-// #include <renderer.hpp>
+#include <chunks.hpp>
+#include <renderer.hpp>
 #include <cmath>
 #include <string>
-// #include "vector2.hpp"
+#include "vector2.hpp"
 
 const int WIDTH = 800, HEIGHT = 600;
 int DISPLAY_WIDTH = 0, DISPLAY_HEIGHT = 0;
@@ -220,30 +221,28 @@ int main(int argc, char* argv[])
     SDL_Event SDLwindowEvent;
     SDL_Surface* SDLsurface = nullptr;
     SDL_Texture* SDLtexture = nullptr;
-    int imageAssetsc = 1;
+    int imageAssetsc = 4;
     const char* imageAssetsv[] = {
-        //"assets/environment/day.jpg", 
-        //"assets/environment/eve.jpg", 
-        //"assets/environment/night3.jpg",
-        //"assets/characters/man_idle.png",
+        "assets/environment/day.jpg", 
+        "assets/environment/night3.jpg",
+        "assets/characters/man_idle.png",
         "assets/minecraft/atlas_v2.png"
     };
     const char* imageAssetsn[] = {
-        //"day_background", 
-        // "eve_background", 
-        // "night_background",
-        // "man_1",
+        "day_background", 
+        "night_background",
+        "man_1",
         "atlas"
     };
 
-    // Camera camera({0, 0}, 3.5f);
+    Camera camera({0, 0}, 3.5f);
 
     float dt          = 0.0f;
     float dt_scale    = 0.02f;
     int SDL_ticks     = SDL_GetTicks64();
     int SDL_ticks_old = SDL_GetTicks64();
     
-    // ChunkEngine chunk_engine;
+    ChunkEngine chunk_engine;
 
     // Player player({0, 0}, 14, 28);
 
@@ -292,8 +291,8 @@ int main(int argc, char* argv[])
     DISPLAY_WIDTH = displayMode.w;
     DISPLAY_HEIGHT = displayMode.h;
     SDL_SetWindowFullscreen(SDLwindow, SDL_WINDOW_FULLSCREEN_DESKTOP);
-    // camera.position = {-DISPLAY_WIDTH / 2, -DISPLAY_HEIGHT / 2};
-    // camera.setDisplay(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    camera.position = {-DISPLAY_WIDTH / 2, -DISPLAY_HEIGHT / 2};
+    camera.setDisplay(DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
     // Initialize renderer
     SDLrenderer = SDL_CreateRenderer(SDLwindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -340,10 +339,11 @@ int main(int argc, char* argv[])
 
     
     // Pre-rendering
-    // GameRenderer gameRenderer(SDLrenderer);
-    // gameRenderer.SetSkyLight(0.6f);
+    GameRenderer gameRenderer(SDLrenderer);
+    gameRenderer.SetSkyLight(0.6f);
+    std::cout << "Debug: beginning initial render." << std::endl;
     // SDL_Point size = {(int)player.GetWidth(), (int)player.GetHeight()};
-    // gameRenderer.RenderEverything(&textures, chunk_engine, player, size, camera);
+    gameRenderer.RenderEverything(&textures, chunk_engine, camera);
 
     bool skipEarlyPhysics = true;
 
@@ -371,9 +371,9 @@ int main(int argc, char* argv[])
         // Another Basic kill switch
         if (keystates[SDL_SCANCODE_F9]) {GAMERUNNING = false;}
         
-        /*
+        
         // Update chunk world
-        chunk_engine.UpdateWorld(player.GetPosition());
+        chunk_engine.UpdateWorld(camera.position);
         int count = chunk_engine.UpdateChunks();
         
         // Update Player
@@ -383,13 +383,17 @@ int main(int argc, char* argv[])
         }
         else
         {
-            UpdatePlayerPhysics(player, chunk_engine, dt, keystates);
+            // UpdatePlayerPhysics(player, chunk_engine, dt, keystates);
+            if (keystates[SDL_SCANCODE_D]) camera.position.x += (10.0f * dt);
+            if (keystates[SDL_SCANCODE_A]) camera.position.x -= (10.0f * dt);
+            if (keystates[SDL_SCANCODE_S]) camera.position.y += (10.0f * dt);
+            if (keystates[SDL_SCANCODE_W]) camera.position.y -= (10.0f * dt);
         }
 
-        if (player.IsMining())
-        {
-            chunk_engine.MineBlock(player.GetCursorPosition());
-        }
+        // if (player.IsMining())
+        // {
+        //     chunk_engine.MineBlock(player.GetCursorPosition());
+        // }
 
         // Update daytime
         day_time += day_speed * dt;
@@ -398,17 +402,17 @@ int main(int argc, char* argv[])
         // std::cout << day_light << std::endl;
         
         // Camera tracks player
-        vector2 target = {player.GetPosition().x - (camera.displayWidth / 2 / camera.zoomMult), player.GetPosition().y - (camera.displayHeight / 2 / camera.zoomMult)};
-        vector2 diff = target - camera.position;
-        camera.position += diff * 0.2f;
+        // vector2 target = {camera.position.x - (camera.displayWidth / 2 / camera.zoomMult), camera.position.y - (camera.displayHeight / 2 / camera.zoomMult)};
+        // vector2 diff = target - camera.position;
+        // camera.position += diff * 0.2f;
+        // camera.position = target;
+
         // std::cout << "Debug: camera position = (" << camera.position.x << ", " << camera.position.y << ")" << std::endl;
         // if (keystates[SDL_SCANCODE_UP])  {camera.zoomMult += 0.01f * dt;}
         // if (keystates[SDL_SCANCODE_DOWN]){camera.zoomMult -= 0.01f * dt;}
         
         // Call rendering
-        SDL_Point size = {(int)player.GetWidth(), (int)player.GetHeight()};
-        gameRenderer.RenderEverything(&textures, chunk_engine, player, size, camera);
-        */
+        gameRenderer.RenderEverything(&textures, chunk_engine, camera);
 
     }
 
