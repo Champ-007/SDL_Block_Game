@@ -78,9 +78,9 @@ vector2 GameRenderer::ScreenToWorld(vector2 position, Camera camera)
     };
 }
 
-/*
-void GameRenderer::RenderPlayer(SDL_Texture* texture, Player& player, SDL_Point size, Camera camera)
+void GameRenderer::RenderPlayer(SDL_Texture* texture, Player& player, Camera camera)
 {
+    SDL_Point size = {int(player.GetWidth()), int(player.GetHeight())};
     vector2 position = player.GetPosition();
     vector2 screenPosition = WorldToScreen(position, camera);
     SDL_FRect frect = {screenPosition.x, screenPosition.y, static_cast<float>(size.x) * camera.zoomMult, static_cast<float>(size.y) * camera.zoomMult};
@@ -116,8 +116,6 @@ void GameRenderer::RenderPlayer(SDL_Texture* texture, Player& player, SDL_Point 
         SDL_RenderDrawLines(renderer, points, 5);
     }
 }
-
-*/
 
 void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk, Camera camera, bool cursorView)
 {
@@ -234,14 +232,14 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
     SDL_RenderGeometry(renderer, textures->at(3), vertices.data(), (int)vertices.size(), indices.data(), (int)indices.size());
 }
 
-void GameRenderer::RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Camera camera)
+void GameRenderer::RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, Camera camera)
 {
     // Debug
     // std::cout << "Debug: beginning new frame." << std::endl;
 
     // Vars
-    // bool cursorView = player.GetCursor();
-    bool cursorView = false;
+    bool cursorView = player.GetCursor();
+    // bool cursorView = false;
 
     // Clear the renderer
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
@@ -261,7 +259,7 @@ void GameRenderer::RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEn
     }
 
     // Render player
-    // RenderPlayer(textures->at(3), player, size, camera);
+    RenderPlayer(textures->at(2), player, camera);
     
     // Present the renderer
     SDL_RenderPresent(renderer);

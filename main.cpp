@@ -5,6 +5,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 // #include <world.hpp>
+#include "player.hpp"
 #include <chunks.hpp>
 #include <renderer.hpp>
 #include <cmath>
@@ -123,7 +124,6 @@ void DestroyTextures(std::vector<SDL_Texture*>& textures)
 
 }
 
-/*
 int LoadSave(std::string str, ChunkEngine& engine, Player& player)
 {
     // Open file
@@ -203,7 +203,6 @@ int BakeSave(std::string str, ChunkEngine& engine, Player& player)
     }
     return 0;
 }
-*/
 
 int main(int argc, char* argv[])
 {
@@ -244,7 +243,7 @@ int main(int argc, char* argv[])
     
     ChunkEngine chunk_engine;
 
-    // Player player({0, 0}, 14, 28);
+    Player player({0, 0}, 14, 28);
 
     bool physics = false;
 
@@ -328,9 +327,9 @@ int main(int argc, char* argv[])
 
     std::cout << "Debug: main recieved textures: " << textures.size() << std::endl;
 
-    // Write to file
-    // LoadSave("save1.txt", chunk_engine, player);
-    // std::cout << "Debug: player position = " << player.GetPosition().x << " " << player.GetPosition().y << std::endl;
+    // Read from file
+    LoadSave("save1.txt", chunk_engine, player);
+    std::cout << "Debug: player position = " << player.GetPosition().x << " " << player.GetPosition().y << std::endl;
 
     // Prime delta time a little and measure startup time
     SDL_ticks = SDL_GetTicks64();
@@ -342,8 +341,8 @@ int main(int argc, char* argv[])
     GameRenderer gameRenderer(SDLrenderer);
     gameRenderer.SetSkyLight(0.6f);
     std::cout << "Debug: beginning initial render." << std::endl;
-    // SDL_Point size = {(int)player.GetWidth(), (int)player.GetHeight()};
-    gameRenderer.RenderEverything(&textures, chunk_engine, camera);
+    SDL_Point size = {(int)player.GetWidth(), (int)player.GetHeight()};
+    gameRenderer.RenderEverything(&textures, chunk_engine, player, camera);
 
     bool skipEarlyPhysics = true;
 
@@ -371,9 +370,8 @@ int main(int argc, char* argv[])
         // Another Basic kill switch
         if (keystates[SDL_SCANCODE_F9]) {GAMERUNNING = false;}
         
-        
         // Update chunk world
-        chunk_engine.UpdateWorld(camera.position);
+        chunk_engine.UpdateWorld(player.GetPosition());
         int count = chunk_engine.UpdateChunks();
         
         // Update Player
@@ -383,17 +381,16 @@ int main(int argc, char* argv[])
         }
         else
         {
-            // UpdatePlayerPhysics(player, chunk_engine, dt, keystates);
-            if (keystates[SDL_SCANCODE_D]) camera.position.x += (10.0f * dt);
-            if (keystates[SDL_SCANCODE_A]) camera.position.x -= (10.0f * dt);
-            if (keystates[SDL_SCANCODE_S]) camera.position.y += (10.0f * dt);
-            if (keystates[SDL_SCANCODE_W]) camera.position.y -= (10.0f * dt);
+            player.UpdateInputX(dt, keystates);
+            player.UpdateInputY(dt, keystates);
+            player.UpdateInput(dt, keystates);
         }
 
-        // if (player.IsMining())
-        // {
-        //     chunk_engine.MineBlock(player.GetCursorPosition());
-        // }
+        // Player mining
+        if (player.IsMining())
+        {
+            chunk_engine.MineBlock(player.GetCursorPosition());
+        }
 
         // Update daytime
         day_time += day_speed * dt;
@@ -402,21 +399,21 @@ int main(int argc, char* argv[])
         // std::cout << day_light << std::endl;
         
         // Camera tracks player
-        // vector2 target = {camera.position.x - (camera.displayWidth / 2 / camera.zoomMult), camera.position.y - (camera.displayHeight / 2 / camera.zoomMult)};
-        // vector2 diff = target - camera.position;
-        // camera.position += diff * 0.2f;
-        // camera.position = target;
+        vector2 target = {player.GetPosition().x - (camera.displayWidth / 2 / camera.zoomMult), player.GetPosition().y - (camera.displayHeight / 2 / camera.zoomMult)};
+        vector2 diff = target - camera.position;
+        camera.position += diff * 0.2f;
 
         // std::cout << "Debug: camera position = (" << camera.position.x << ", " << camera.position.y << ")" << std::endl;
-        // if (keystates[SDL_SCANCODE_UP])  {camera.zoomMult += 0.01f * dt;}
-        // if (keystates[SDL_SCANCODE_DOWN]){camera.zoomMult -= 0.01f * dt;}
+        if (keystates[SDL_SCANCODE_UP])  {camera.zoomMult += 0.01f * dt;}
+        if (keystates[SDL_SCANCODE_DOWN]){camera.zoomMult -= 0.01f * dt;}
         
         // Call rendering
-        gameRenderer.RenderEverything(&textures, chunk_engine, camera);
+        gameRenderer.RenderEverything(&textures, chunk_engine, player, camera);
 
     }
 
-    // BakeSave("save1.txt", chunk_engine, player);
+    // Write to file
+    BakeSave("save1.txt", chunk_engine, player);
 
     // int value = chunk_engine.GetChunks().size();
     // std::cout << "Debug: final chunk count = " << value << std::endl;

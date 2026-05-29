@@ -15,7 +15,7 @@
 #include <iostream>
 #include <vector>
 #include <chunks.hpp>
-// #include <player.hpp>
+#include <player.hpp>
 #include "vector2.hpp"
 
 struct Camera
@@ -58,11 +58,11 @@ struct GameRenderer
     
     vector2 ScreenToWorld(vector2 position, Camera camera);
     
-    // void RenderPlayer(SDL_Texture* texture, Player& player, SDL_Point size, Camera camera);
+    void RenderPlayer(SDL_Texture* texture, Player& player, Camera camera);
     
     void RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk, Camera camera, bool cursorView);
     
-    void RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Camera camera);
+    void RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, Camera camera);
 
 };
 
