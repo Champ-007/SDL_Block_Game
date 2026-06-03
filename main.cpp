@@ -4,7 +4,7 @@
 #include <random>
 #include <SDL.h>
 #include <SDL_image.h>
-// #include <world.hpp>
+#include <physics.hpp>
 #include "player.hpp"
 #include <chunks.hpp>
 #include <renderer.hpp>
@@ -224,7 +224,7 @@ int main(int argc, char* argv[])
     const char* imageAssetsv[] = {
         "assets/environment/day.jpg", 
         "assets/environment/night3.jpg",
-        "assets/characters/man_idle.png",
+        "assets/characters/man_idle1.png",
         "assets/minecraft/atlas_v2.png"
     };
     const char* imageAssetsn[] = {
@@ -343,6 +343,7 @@ int main(int argc, char* argv[])
     std::cout << "Debug: beginning initial render." << std::endl;
     SDL_Point size = {(int)player.GetWidth(), (int)player.GetHeight()};
     gameRenderer.RenderEverything(&textures, chunk_engine, player, camera);
+    std::cout << "Debug: inital render successful." << std::endl;
 
     bool skipEarlyPhysics = true;
 
@@ -368,7 +369,7 @@ int main(int argc, char* argv[])
         }
 
         // Another Basic kill switch
-        if (keystates[SDL_SCANCODE_F9]) {GAMERUNNING = false;}
+        if (keystates[SDL_SCANCODE_F9]) GAMERUNNING = false;
         
         // Update chunk world
         chunk_engine.UpdateWorld(player.GetPosition());
@@ -381,8 +382,7 @@ int main(int argc, char* argv[])
         }
         else
         {
-            player.UpdateInputX(dt, keystates);
-            player.UpdateInputY(dt, keystates);
+            UpdatePlayerPhysics(player, chunk_engine, dt, keystates);
             player.UpdateInput(dt, keystates);
         }
 
@@ -404,8 +404,8 @@ int main(int argc, char* argv[])
         camera.position += diff * 0.2f;
 
         // std::cout << "Debug: camera position = (" << camera.position.x << ", " << camera.position.y << ")" << std::endl;
-        if (keystates[SDL_SCANCODE_UP])  {camera.zoomMult += 0.01f * dt;}
-        if (keystates[SDL_SCANCODE_DOWN]){camera.zoomMult -= 0.01f * dt;}
+        // if (keystates[SDL_SCANCODE_UP])  {camera.zoomMult += 0.01f * dt;}
+        // if (keystates[SDL_SCANCODE_DOWN]){camera.zoomMult -= 0.01f * dt;}
         
         // Call rendering
         gameRenderer.RenderEverything(&textures, chunk_engine, player, camera);

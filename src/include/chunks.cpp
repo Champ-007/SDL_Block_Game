@@ -551,31 +551,97 @@ void ChunkEngine::UpdateWorld(vector2 pos)
     
 }
 
+vector2 ChunkEngine::CollidePoint(vector2 pos)
+{
+    // Get the chunk that the position is in
+    vector2 pos_block = {
+        static_cast<int>(floor(pos.x / BLOCK_WIDTH)),
+        static_cast<int>(floor(pos.y / BLOCK_WIDTH))
+    };
+
+    ChunkCoord pos_chunk = {
+        static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)),
+        static_cast<int>(floor(pos_block.y / CHUNK_WIDTH))
+    };
+
+    auto it = chunks.find(pos_chunk);
+
+    if (it != chunks.end())
+    {
+        // Adjust to get the relative position
+        vector2 chunk_blockPos = {
+            pos_chunk.x * CHUNK_WIDTH,
+            pos_chunk.y * CHUNK_WIDTH
+        };
+        // Round to block position
+        vector2 relative_block_pos = pos_block - chunk_blockPos;
+
+        int block = it->second->GetBlock(relative_block_pos.x, relative_block_pos.y);
+        // std::cout << "Debug: block = " << block << std::endl;
+
+        // Return the value of that block
+        if (block != -1)
+        {
+            // Get the fix upwards and leftwards
+            vector2 block_world = {
+                (pos_block.x * BLOCK_WIDTH),
+                (pos_block.y * BLOCK_WIDTH)
+            };
+
+            vector2 penetration = {
+                block_world.x - pos.x,
+                block_world.y - pos.y
+            };
+
+            vector2 fix;
+
+            // Flip to closest edge
+            if (abs(penetration.x) > BLOCK_WIDTH / 2) fix.x = penetration.x + BLOCK_WIDTH;
+            else fix.x = penetration.x - 0.001f;
+
+            if (abs(penetration.y) > BLOCK_WIDTH / 2) fix.y = penetration.y + BLOCK_WIDTH;
+            else fix.y = penetration.y - 0.001f;
+
+            // std::cout << "Debug: fix = (" << fix.x << ", " << fix.y << ")" << std::endl;
+            return fix;
+        }
+        else
+        {
+            return {0, 0};
+        }
+
+    }
+    // collsion is outside of existing chunks
+    else return {0, 0};
+}
+
 void ChunkEngine::MineBlock(vector2 pos_block)
 {
-    int pos_chunk_x = static_cast<int>(floor(pos_block.x / CHUNK_WIDTH));
-    int pos_chunk_y = static_cast<int>(floor(pos_block.y / CHUNK_WIDTH));
-    ChunkCoord pos_chunk = {pos_chunk_x, pos_chunk_y};
+    ChunkCoord pos_chunk = {
+        static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
+        static_cast<int>(floor(pos_block.y / CHUNK_WIDTH))
+    };
 
     auto it  = chunks.find(pos_chunk);
 
     if (it != chunks.end())
     {
         vector2 chunk_blockPos = {
-            pos_chunk_x * CHUNK_WIDTH,
-            pos_chunk_y * CHUNK_WIDTH
+            pos_chunk.x * CHUNK_WIDTH,
+            pos_chunk.y * CHUNK_WIDTH
         };
 
         vector2 pos_in_chunk = pos_block - chunk_blockPos;
 
         int block = it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y);
         it->second->AddBlockToQueue((int)pos_in_chunk.x, (int)pos_in_chunk.y);
-        ChunkSave* save = ChunkSaveExists({pos_chunk_x, pos_chunk_y});
+        ChunkSave* save = ChunkSaveExists(pos_chunk);
         if (save != nullptr)
         {
             int index = pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH);
             bool block_exists = false;
             int block_list_index = 0;
+            
             for (int i = 0; i < save->positions.size(); i++)
             {
                 if (save->positions[i] == index)
@@ -584,6 +650,7 @@ void ChunkEngine::MineBlock(vector2 pos_block)
                     block_list_index = i;
                 }
             }
+
             if (block_exists)
             {
                 save->blocks.at(block_list_index) = block;
@@ -597,136 +664,12 @@ void ChunkEngine::MineBlock(vector2 pos_block)
         else
         {
             ChunkSave newChunkSave;
-            newChunkSave.coord = {pos_chunk_x, pos_chunk_y};
+            newChunkSave.coord = pos_chunk;
             newChunkSave.blocks.push_back(block);
             newChunkSave.positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
             AddChunkSave(newChunkSave);
         }
     }
-}
-
-vector2 ChunkEngine::GetCollision(vector2 pos)
-{
-    // Initialize our response
-    vector2 collision = {0, 0};
-
-    // // Check tops points for worst collision
-    // for (auto& point : col.top_collision_points)
-    // {
-    //     vector2 point_world = point + pos;
-    //     PointCollisionInfo collision_result = CollidePoint(point_world);
-    //     if (collision_result.block_type != 0 && collision_result.depth > collision.top)
-    //     {
-    //         collision.top = collision_result.depth;
-    //     }
-    // }
-    // // Check right points for worst collision
-    // for (auto& point : col.right_collision_points)
-    // {
-    //     vector2 point_world = point + pos;
-    //     PointCollisionInfo collision_result = CollidePoint(point_world, Collision_right);
-    //     if (collision_result.block_type != 0 && collision_result.depth < collision.right)
-    //     {
-    //         collision.right = collision_result.depth;
-    //     }
-    // }
-    // // Check bottom points for worst collision
-    // for (auto& point : col.bottom_collision_points)
-    // {
-    //     vector2 point_world = point + pos;
-    //     PointCollisionInfo collision_result = CollidePoint(point_world, Collision_bottom);
-    //     if (collision_result.block_type != 0 && collision_result.depth < collision.bottom)
-    //     {
-    //         collision.bottom = collision_result.depth;
-    //     }
-    // }
-    // // Check left points for worst collision
-    // for (auto& point : col.left_collision_points)
-    // {
-    //     vector2 point_world = point + pos;
-    //     PointCollisionInfo collision_result = CollidePoint(point_world, Collision_left);
-    //     if (collision_result.block_type != 0 && collision_result.depth > collision.left)
-    //     {
-    //         collision.left = collision_result.depth;
-    //     }
-    // }
-
-    // Get the block at our position
-    
-    // The width of a chunk in world space
-    int chunk_world_width = CHUNK_WIDTH * BLOCK_WIDTH;
-
-    // Round our position to the nearest chunk position, in chunk space
-    int pos_chunk_x = int(floor(pos.x / chunk_world_width));
-    int pos_chunk_y = int(floor(pos.y / chunk_world_width));
-    ChunkCoord pos_chunk = {pos_chunk_x, pos_chunk_y};
-
-    // Look up that chunk to see if it exists
-    auto it = chunks.find(pos_chunk);
-    if (it != chunks.end())
-    {
-        // round our position to block space
-        vector2 pos_blocks = {
-            int(floor(pos.x / BLOCK_WIDTH)),
-            int(floor(pos.y / BLOCK_WIDTH))
-        };
-
-        // Get the block space position of the selected chunk
-        vector2 chunk_worldPos = {
-            pos_chunk_x * CHUNK_WIDTH,
-            pos_chunk_y * CHUNK_WIDTH
-        };
-
-        // Get the block position of our position relative to the selected chunk
-        vector2 pos_block_in_chunk = pos_blocks - chunk_worldPos;
-
-        // Get what block our position is over top of
-        int block = it->second->GetBlock(int(pos_block_in_chunk.x), int(pos_block_in_chunk.y));
-
-        // If we are colliding with something, get the most efficient lateral and vertical moves to exit that block
-        if (block == -1 || block == 205)
-        {
-            // Ignore collision for air and flowers
-        }
-        else
-        {
-            // Get the world position of the colliding block
-            vector2 block_world = pos_blocks * BLOCK_WIDTH;
-
-            // Get vector2 relative to the origin of the colliding block
-            vector2 diff = {
-                pos.x - block_world.x,
-                pos.y - block_world.y
-            };
-
-            // If we are on the close side of the block laterally,
-            // then return the inverse, but if we are on the far
-            // side, then project the change to the opposite side
-            if (diff.x < BLOCK_WIDTH / 2)
-            {
-                collision.x = -diff.x;
-                // std::cout << "Debug: collision says go left: " << collision.x << std::endl;
-            }
-            else
-            {
-                collision.x = -diff.x + BLOCK_WIDTH;
-                // std::cout << "Debug: Collision says go right: " << collision.x << 
-            }
-
-            // same calculation for vertical direction, get the value
-            // that represents the smallest vertical movement to leave the block
-            if (diff.y < BLOCK_WIDTH / 2)
-            {
-                collision.y = -diff.y;
-            }
-            else
-            {
-                collision.y = -diff.y + BLOCK_WIDTH;
-            }
-        }
-    }
-
-    return collision;
 }
 
 std::pair<int, int> ChunkEngine::GetLight(vector2 block_pos)

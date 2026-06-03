@@ -28,10 +28,11 @@ struct Player
     float width;
     float height;
     vector2 velocity;
+    std::vector<vector2> collider;
     // Collider playerCollider;
     // float dt;
 
-    float gravity = 0.0f;
+    float gravity = 2.0f;
     float jumpForce = 14.0f;
     float moveSpeed = 2.0f;
 
@@ -39,7 +40,7 @@ struct Player
 
     // long double depth_col2;
     // float nums[100];
-    vector2 my_depth;
+    // vector2 my_depth;
 
     // const uint8_t* keystates;
     float heath = 10;
@@ -65,10 +66,13 @@ struct Player
     float GetHeight();
     void  SetHeight(float h);
 
+    void UpdateCollider();
+    std::vector<vector2>* getCollider();
+
     // Collider& GetCollider();
-    // void UpdateCollisionX(float depth);
-    // void UpdateCollisionY(float depth);
-    // void UpdateCollision(vector2 collision);
+    void UpdateCollisionX(float depth);
+    void UpdateCollisionY(float depth);
+    void UpdateCollision(vector2 collision);
 
     bool GetCursor();
     vector2 GetCursorPosition();
@@ -78,6 +82,8 @@ struct Player
     void UpdateInputY(float dt, const uint8_t* keystates);
     void UpdateInputX(float dt, const uint8_t* keystates);
     void UpdateInput(float dt, const uint8_t* keystates);
+
+    bool GetVelDir();
 
     // void Update(float dt);
 

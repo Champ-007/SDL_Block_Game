@@ -7,6 +7,7 @@ Player::Player(vector2 _pos, float _w, float _h)
     width = _w;
     height = _h;
     velocity = {0, 0};
+    UpdateCollider();
     // playerCollider.UpdateCollider(_w, _h);
 }
 
@@ -37,6 +38,7 @@ float Player::GetWidth()
 void  Player::SetWidth(float w)
 {
     width = w;
+    UpdateCollider();
     // playerCollider.UpdateCollider(width, height);
 }
 
@@ -47,7 +49,24 @@ float Player::GetHeight()
 void  Player::SetHeight(float h)
 {
     height = h;
+    UpdateCollider();
     // playerCollider.UpdateCollider(width, height);
+}
+
+void Player::UpdateCollider()
+{
+    collider.clear();
+    collider.push_back({-width / 2, -height / 2});
+    collider.push_back({width / 2, -height / 2});
+    collider.push_back({width / 2, height / 2});
+    collider.push_back({-width / 2, height / 2});
+    collider.push_back({width / 2, 0});
+    collider.push_back({-width / 2, 0});
+}
+
+std::vector<vector2>* Player::getCollider()
+{
+    return &collider;
 }
 
 // Collider& Player::GetCollider()
@@ -55,55 +74,55 @@ void  Player::SetHeight(float h)
 //     return playerCollider;
 // }
 
-// void Player::UpdateCollisionX(float depth)
-// {
-//     if (depth != 0)
-//     {
-//         position += depth;
-//         std::cout << "position x = " << position.x << std::endl;
-//         velocity.x = 0.0f;
-//     }
-//     my_depth.x = depth;
-// }
+void Player::UpdateCollisionX(float depth)
+{
+    if (depth != 0)
+    {
+        position += depth;
+        // std::cout << "position x = " << position.x << std::endl;
+        velocity.x = 0.0f;
+    }
+    // my_depth.x = depth;
+}
 
-// void Player::UpdateCollisionY(float depth)
-// {
-//     if (depth != 0)
-//     {
-//         position.y += depth;
-//         velocity.y = 0.0f;
-//         if (depth < 0.0f)
-//         {
-//             falling = 0;
-//         }
-//     }
-//     my_depth.y = depth;
-// }
+void Player::UpdateCollisionY(float depth)
+{
+    if (depth != 0)
+    {
+        position.y += depth;
+        velocity.y = 0.0f;
+        if (depth < 0.0f)
+        {
+            falling = 0;
+        }
+    }
+    // my_depth.y = depth;
+}
 
-// void Player::UpdateCollision(vector2 col)
-// {
-//     // Debug
-//     // std::cout << "Debug: collision = (" << col.top << ", " << col.right << ", " << col.bottom << ", " << col.left << ")" << std::endl; 
+void Player::UpdateCollision(vector2 col)
+{
+    // Debug
+    // std::cout << "Debug: collision = (" << col.top << ", " << col.right << ", " << col.bottom << ", " << col.left << ")" << std::endl; 
 
-//     // If both top and bottom are colliding, then ignore vertical collision
-//     if (col.y != 0)
-//     {
-//         std::cout << "Debug: fix y = " << col.y << std::endl;
-//         position.y += col.y;
-//         velocity.y = 0.0f;
-//         if (col.y < 0.0f)
-//         {
-//             falling = 0;
-//         }
-//     }
+    // If both top and bottom are colliding, then ignore vertical collision
+    if (col.y != 0)
+    {
+        std::cout << "Debug: fix y = " << col.y << std::endl;
+        position.y += col.y;
+        velocity.y = 0.0f;
+        if (col.y < 0.0f)
+        {
+            falling = 0;
+        }
+    }
 
-//     // If both right and left are colliding, then ignore horizontal collision
-//     if (col.x != 0)
-//     {
-//         position.x += col.x;
-//         velocity.x = 0.0f;
-//     }
-// }
+    // If both right and left are colliding, then ignore horizontal collision
+    if (col.x != 0)
+    {
+        position.x += col.x;
+        velocity.x = 0.0f;
+    }
+}
 
 bool Player::GetCursor()
 {
@@ -123,20 +142,20 @@ bool Player::IsMining()
 void Player::UpdateInputY(float dt, const uint8_t* keystates)
 {
     // Vertical movement
-    // if (crouch == 0)
-    // {
-    //     if (keystates[SDL_SCANCODE_SPACE] && falling < 4)
-    //     {
-    //         velocity.y = -jumpForce;
-    //     }
-    // }
-    // velocity.y += gravity * dt;
-    // falling += 1;
-    float down = float(keystates[SDL_SCANCODE_S]);
-    float up  = float(keystates[SDL_SCANCODE_W]);
-    float move_y = down - up;
-    velocity.y += move_y * moveSpeed;
-    velocity.y *= 0.8f;
+    if (crouch == 0)
+    {
+        if (keystates[SDL_SCANCODE_SPACE] && falling < 4)
+        {
+            velocity.y = -jumpForce;
+        }
+    }
+    velocity.y += gravity * dt;
+    falling += 1;
+    // float down = float(keystates[SDL_SCANCODE_S]);
+    // float up  = float(keystates[SDL_SCANCODE_W]);
+    // float move_y = down - up;
+    // velocity.y += move_y * moveSpeed;
+    // velocity.y *= 0.8f;
 
     position.y += velocity.y * dt;
 }
@@ -257,6 +276,11 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
 
     // position += velocity * dt;
 
+}
+
+bool Player::GetVelDir()
+{
+    return (abs(velocity.y) >= abs(velocity.x));
 }
 
 // void Player::Update(float dt)

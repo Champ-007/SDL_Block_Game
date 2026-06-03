@@ -3,7 +3,7 @@ SDL_LIBS = C:/msys64/mingw64/lib
 SRC_INCLUDE = src/include
 
 SOURCES = main.cpp src/include/chunks.cpp src/include/player.cpp src/include/renderer.cpp src/include/world.cpp
-OBJECTS = obj/main.o obj/renderer.o obj/chunks.o obj/player.o # src/include/world.o
+OBJECTS = obj/main.o obj/renderer.o obj/chunks.o obj/player.o obj/physics.o
 
 all: main
 
@@ -22,8 +22,8 @@ obj/player.o: src/include/player.cpp src/include/player.hpp
 obj/renderer.o: src/include/renderer.cpp src/include/renderer.hpp
 	g++ -I $(SDL_INCLUDE) -I $(SRC_INCLUDE) -c src/include/renderer.cpp -o obj/renderer.o
 
-# src/include/world.o: src/include/world.cpp src/include/world.hpp
-# 	g++ -I $(SDL_INCLUDE) -I $(SRC_INCLUDE) -c src/include/world.cpp -o src/include/world.o
+obj/physics.o: src/include/physics.cpp src/include/physics.hpp
+	g++ -I $(SDL_INCLUDE) -I $(SRC_INCLUDE) -c src/include/physics.cpp -o obj/physics.o
 
 # src/include/collider.o: src/include/collider.cpp src/include/collider.hpp
 # 	g++ -std=c++20 -I $(SDL_INCLUDE) -I $(SRC_INCLUDE) -c src/include/collider.cpp -o src/include/collider.o
@@ -36,5 +36,4 @@ run:
 
 clean:
 	del main.exe
-	del save1.txt
 	if exist obj rmdir /s /q obj

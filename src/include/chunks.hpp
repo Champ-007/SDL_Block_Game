@@ -151,7 +151,7 @@ struct ChunkEngine
 
     vector2 CollidePoint(vector2 pos);
 
-    vector2 GetCollision(vector2 pos);
+    // vector2 GetCollision(vector2 pos);
     
     void MineBlock(vector2 pos);
 
