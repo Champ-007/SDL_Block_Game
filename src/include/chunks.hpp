@@ -1,19 +1,20 @@
-#ifndef CHUNKS
-#define CHUNKS
+#pragma once
 
 #include <iostream>
 #include <vector>
 #include <numbers>
 #include <random>
-#include "vector2.hpp"
 #include <memory>
 #include <queue>
 #include <algorithm>
 #include <functional>
 #include <iterator>
 #include <FastNoiseLite.h>
-// #include "collider.hpp"
+#include <string>
+
 #include "figures.hpp"
+#include "vector2.hpp"
+#include "blockRegistry.hpp"
 
 const int LIGHT_DECAY_SKY = 64;
 const int LIGHT_DECAY_BLOCK = 48;
@@ -153,7 +154,7 @@ struct ChunkEngine
 
     // vector2 GetCollision(vector2 pos);
     
-    void MineBlock(vector2 pos);
+    bool MineBlock(vector2 pos, float mining);
 
     std::pair<int, int> GetLight(vector2 block_pos);
 
@@ -164,5 +165,3 @@ struct ChunkEngine
     void QueueBlock(vector2 block_pos);
 
 };
-
-#endif

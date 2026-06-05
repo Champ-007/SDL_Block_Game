@@ -1,15 +1,17 @@
+
 #include <iostream>
 #include <fstream>
 #include <vector>
 #include <random>
 #include <SDL.h>
 #include <SDL_image.h>
-#include <physics.hpp>
-#include "player.hpp"
-#include <chunks.hpp>
-#include <renderer.hpp>
 #include <cmath>
 #include <string>
+
+#include "player.hpp"
+#include "chunks.hpp"
+#include "physics.hpp"
+#include "renderer.hpp"
 #include "vector2.hpp"
 
 const int WIDTH = 800, HEIGHT = 600;
@@ -363,7 +365,6 @@ int main(int argc, char* argv[])
         {
             if (SDLwindowEvent.type == SDL_QUIT)
             {
-                std::cout << "Debug: program set to close." << std::endl;
                 GAMERUNNING = false;
             }
         }
@@ -389,7 +390,8 @@ int main(int argc, char* argv[])
         // Player mining
         if (player.IsMining())
         {
-            chunk_engine.MineBlock(player.GetCursorPosition());
+            bool mine = chunk_engine.MineBlock(player.GetCursorPosition(), player.GetMining());
+            player.ResetMining(mine);
         }
 
         // Update daytime

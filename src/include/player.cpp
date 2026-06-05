@@ -7,8 +7,7 @@ Player::Player(vector2 _pos, float _w, float _h)
     width = _w;
     height = _h;
     velocity = {0, 0};
-    UpdateCollider();
-    // playerCollider.UpdateCollider(_w, _h);
+    playerCollider.Build(_w, _h);
 }
 
 vector2 Player::GetPosition()
@@ -38,8 +37,7 @@ float Player::GetWidth()
 void  Player::SetWidth(float w)
 {
     width = w;
-    UpdateCollider();
-    // playerCollider.UpdateCollider(width, height);
+    playerCollider.Build(width, height);
 }
 
 float Player::GetHeight()
@@ -49,30 +47,13 @@ float Player::GetHeight()
 void  Player::SetHeight(float h)
 {
     height = h;
-    UpdateCollider();
-    // playerCollider.UpdateCollider(width, height);
+    playerCollider.Build(width, height);
 }
 
-void Player::UpdateCollider()
+Collider& Player::GetCollider()
 {
-    collider.clear();
-    collider.push_back({-width / 2, -height / 2});
-    collider.push_back({width / 2, -height / 2});
-    collider.push_back({width / 2, height / 2});
-    collider.push_back({-width / 2, height / 2});
-    collider.push_back({width / 2, 0});
-    collider.push_back({-width / 2, 0});
+    return playerCollider;
 }
-
-std::vector<vector2>* Player::getCollider()
-{
-    return &collider;
-}
-
-// Collider& Player::GetCollider()
-// {
-//     return playerCollider;
-// }
 
 void Player::UpdateCollisionX(float depth)
 {
@@ -136,7 +117,17 @@ vector2 Player::GetCursorPosition()
 
 bool Player::IsMining()
 {
-    return mining == 1;
+    return mining > 0.0f;
+}
+
+float Player::GetMining()
+{
+    return mining;
+}
+
+void Player::ResetMining(bool t)
+{
+    if (t) mining = 0.0f;
 }
 
 void Player::UpdateInputY(float dt, const uint8_t* keystates)
@@ -202,7 +193,6 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
     // velocity.x *= 0.8f;
 
     // Cursor Movement
-    mining = 0;
     if (crouch == 1)
     {
         // Move cursor left
@@ -210,6 +200,7 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
         {
             vector2 move = {-1, 0};
             cursor_position += move;
+            mining = 0.0f;
             curTrig_a = true;
         }
         if (!keystates[SDL_SCANCODE_A] && curTrig_a)
@@ -222,6 +213,7 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
         {
             vector2 move = {1, 0};
             cursor_position += move;
+            mining = 0.0f;
             curTrig_d = true;
         }
         if (!keystates[SDL_SCANCODE_D] && curTrig_d)
@@ -234,6 +226,7 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
         {
             vector2 move = {0, -1};
             cursor_position += move;
+            mining = 0.0f;
             curTrig_w = true;
         }
         if (!keystates[SDL_SCANCODE_W] && curTrig_w)
@@ -246,6 +239,7 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
         {
             vector2 move = {0, 1};
             cursor_position += move;
+            mining = 0.0f;
             curTrig_s = true;
         }
         if (!keystates[SDL_SCANCODE_S] && curTrig_s)
@@ -254,11 +248,14 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
         }
 
         // Mine
-        if (keystates[SDL_SCANCODE_LEFT] && !mineTrig)
+        if (keystates[SDL_SCANCODE_LEFT])
         {
-            mining = 1;
+            mining += mineSpeed;
         }
-        mineTrig = keystates[SDL_SCANCODE_LEFT];
+        else if (!keystates[SDL_SCANCODE_LEFT])
+        {
+            mining = 0.0f;
+        }
     }
 
     // Crouching

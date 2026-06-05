@@ -1,5 +1,4 @@
-#ifndef PHYSICS
-#define PHYSICS
+#pragma once
 
 // So, what does the physics layer need to do?
 // 1. manage communication between chunks and player
@@ -13,7 +12,6 @@
 #include <iostream>
 #include "chunks.hpp"
 #include "player.hpp"
+#include "collider.cpp"
 
 void UpdatePlayerPhysics(Player& player, ChunkEngine& engine, float dt, const uint8_t* keystates);
-
-#endif

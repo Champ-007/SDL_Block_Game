@@ -127,10 +127,14 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
 
     for (int i = 0; i < CHUNK_LENGTH; i++)
     {
-        int block = chunk->GetBlock(i);
+        BlockID block = chunk->GetBlock(i);
 
+        // std::cout << "Debug: Starting chunk render." << std::endl;
+        
+        const BlockDef& def = BlockRegistry::get(block);
+        
         // Do not render empty space
-        if (block == -1)
+        if (def.name == "air")
         {
             continue;
         }
@@ -186,8 +190,8 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
         top_left_color = {light_data, light_data, light_data, 255};
 
         // Atlas width = 16, make sure to update these figures if the atlas ever changes
-        int atlas_x = block % 32;
-        int atlas_y = floor(block / 32);
+        int atlas_x = def.textureIndex % 32;
+        int atlas_y = floor(def.textureIndex / 32);
 
         // texture height = 16, make sure to update these figures if the atlas ever changes
         // 1 / 16 = 0.0625

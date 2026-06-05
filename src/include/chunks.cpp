@@ -149,24 +149,11 @@ int Chunk::GetBlock(int i)
 int Chunk::SetBlock(int x, int y)
 {
     int new_block = 0;
-    switch (blocks[x + (y * CHUNK_WIDTH)])
-    {
-        case -1:
-            new_block = 136;
-            break;
-    
-        case 136:
-            new_block = 205;
-            break;
-
-        case 205:
-            new_block = -1;
-            break;
-
-        default:
-            new_block = -1;
-            break;
-    }
+    BlockDef def = BlockRegistry::get(blocks[x + (y * CHUNK_WIDTH)]);
+    if (def.name == "air") new_block = BlockRegistry::getIDByName("dirt");
+    else if (def.name == "dirt") new_block = BlockRegistry::getIDByName("yellow_flower");
+    else if (def.name == "yellow_flower") new_block = BlockRegistry::getIDByName("air");
+    else new_block = BlockRegistry::getIDByName("air");
 
     blocks[x + (y * CHUNK_WIDTH)] = new_block;
     return new_block;
@@ -199,35 +186,46 @@ void Chunk::Generate(ChunkCoord c, int seed)
             block_lights[i] = 0;
             if (density < 0.0f)
             {
-                if (density2 < -0.3 && noise.GetNoise((float)index_x, (float)index_y + 1) > 0.0f)
+                if (noise.GetNoise((float)index_x, (float)index_y + 1) > 0.0f)
                 {
-                    blocks[i] = 205;
+                    if (density2 < -0.3)
+                    {
+                        blocks[i] = BlockRegistry::getIDByName("yellow_flower");
+                    }
+                    else if (density2 > 0.3)
+                    {
+                        blocks[i] = BlockRegistry::getIDByName("twigs");
+                    }
                 }
                 else
                 {
-                    blocks[i] = -1;
+                    if (density2 < -0.3)
+                    {
+                        blocks[i] = BlockRegistry::getIDByName("water");
+                    }
+                    else blocks[i] = BlockRegistry::getIDByName("air");
                 }
             }
             else if (density < 0.4)
             {
                 if (noise.GetNoise((float)index_x, (float)index_y - 1) < 0.0f)
                 {
-                    blocks[i] = 320;
+                    blocks[i] = BlockRegistry::getIDByName("grass");
                 }
                 else
                 {
-                    blocks[i] = 136;
+                    blocks[i] = BlockRegistry::getIDByName("dirt");
                 }
             }
             else
             {
                 if (density2 < -0.3f)
                 {
-                    blocks[i] = 303;
+                    blocks[i] = BlockRegistry::getIDByName("gold_ore");
                 }
                 else
                 {
-                    blocks[i] = 339;
+                    blocks[i] = BlockRegistry::getIDByName("stone");
                 }
             }
             in_queue[i] = true;
@@ -270,6 +268,7 @@ void Chunk::UpdateLight()
             floor(index / CHUNK_WIDTH)
         };
         int block_type = blocks[index];
+        BlockDef def = BlockRegistry::get(block_type);
         int sky_light_tran = sky_lights[index];
         int block_light_tran = block_lights[index];
         
@@ -326,17 +325,8 @@ void Chunk::UpdateLight()
         }
 
         // raise light of block to either -1 of highest adjacent light, or native light of block, whichever is higher
-        int sky_native = 0;
-        int block_native = 0;
-        if (block_type == -1)
-        {
-            sky_native = 255;
-        }
-        if (block_type == 205)
-        {
-            sky_native = 255;
-            block_native = 255;
-        }
+        int sky_native = def.skyLight;
+        int block_native = def.blockLight;
         sky_lights[index] = std::max({sky_native, sky_highest - LIGHT_DECAY_SKY, 0});
         block_lights[index] = std::max({block_native, block_highest - LIGHT_DECAY_BLOCK, 0});
         
@@ -431,6 +421,7 @@ ChunkEngine::ChunkEngine()
 {
     std::random_device rd;
     world_seed = rd();
+    BlockRegistry::Init();
     // Nevermind!
     // world_seed = 1234;
 }
@@ -577,10 +568,11 @@ vector2 ChunkEngine::CollidePoint(vector2 pos)
         vector2 relative_block_pos = pos_block - chunk_blockPos;
 
         int block = it->second->GetBlock(relative_block_pos.x, relative_block_pos.y);
+        BlockDef def = BlockRegistry::get(block);
         // std::cout << "Debug: block = " << block << std::endl;
 
         // Return the value of that block
-        if (block != -1)
+        if (def.isSolid)
         {
             // Get the fix upwards and leftwards
             vector2 block_world = {
@@ -615,7 +607,7 @@ vector2 ChunkEngine::CollidePoint(vector2 pos)
     else return {0, 0};
 }
 
-void ChunkEngine::MineBlock(vector2 pos_block)
+bool ChunkEngine::MineBlock(vector2 pos_block, float mining)
 {
     ChunkCoord pos_chunk = {
         static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
@@ -633,43 +625,49 @@ void ChunkEngine::MineBlock(vector2 pos_block)
 
         vector2 pos_in_chunk = pos_block - chunk_blockPos;
 
-        int block = it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y);
-        it->second->AddBlockToQueue((int)pos_in_chunk.x, (int)pos_in_chunk.y);
-        ChunkSave* save = ChunkSaveExists(pos_chunk);
-        if (save != nullptr)
+        if (mining >= BlockRegistry::get(it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y)).mineStrength)
         {
-            int index = pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH);
-            bool block_exists = false;
-            int block_list_index = 0;
-            
-            for (int i = 0; i < save->positions.size(); i++)
+            int block = it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y);
+            BlockDef def = BlockRegistry::get(block);
+            it->second->AddBlockToQueue((int)pos_in_chunk.x, (int)pos_in_chunk.y);
+            ChunkSave* save = ChunkSaveExists(pos_chunk);
+            if (save != nullptr)
             {
-                if (save->positions[i] == index)
+                int index = pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH);
+                bool block_exists = false;
+                int block_list_index = 0;
+                
+                for (int i = 0; i < save->positions.size(); i++)
                 {
-                    block_exists = true;
-                    block_list_index = i;
+                    if (save->positions[i] == index)
+                    {
+                        block_exists = true;
+                        block_list_index = i;
+                    }
                 }
-            }
-
-            if (block_exists)
-            {
-                save->blocks.at(block_list_index) = block;
+    
+                if (block_exists)
+                {
+                    save->blocks.at(block_list_index) = block;
+                }
+                else
+                {
+                    save->blocks.push_back(block);
+                    save->positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
+                }
             }
             else
             {
-                save->blocks.push_back(block);
-                save->positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
+                ChunkSave newChunkSave;
+                newChunkSave.coord = pos_chunk;
+                newChunkSave.blocks.push_back(block);
+                newChunkSave.positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
+                AddChunkSave(newChunkSave);
             }
-        }
-        else
-        {
-            ChunkSave newChunkSave;
-            newChunkSave.coord = pos_chunk;
-            newChunkSave.blocks.push_back(block);
-            newChunkSave.positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
-            AddChunkSave(newChunkSave);
+            return true;
         }
     }
+    return false;
 }
 
 std::pair<int, int> ChunkEngine::GetLight(vector2 block_pos)

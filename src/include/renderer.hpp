@@ -1,5 +1,4 @@
-#ifndef RENDERER
-#define RENDERER
+#pragma once
 
 // So, what does the renderer do?
 // 1. know about textures and rendering.
@@ -16,7 +15,10 @@
 #include <vector>
 #include <chunks.hpp>
 #include <player.hpp>
+#include <string>
+
 #include "vector2.hpp"
+#include "blockRegistry.hpp"
 
 struct Camera
 {
@@ -65,5 +67,3 @@ struct GameRenderer
     void RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, Camera camera);
 
 };
-
-#endif

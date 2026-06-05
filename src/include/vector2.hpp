@@ -1,5 +1,4 @@
-#ifndef VECTOR2
-#define VECTOR2
+#pragma once
 
 struct vector2
 {
@@ -60,5 +59,3 @@ struct vector2
         return *this;
     }
 };
-
-#endif

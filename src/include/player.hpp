@@ -1,5 +1,4 @@
-#ifndef PLAYER
-#define PLAYER
+#pragma once
 
 // So, what does the player code need to do?
 // 1. manage inventory
@@ -19,6 +18,7 @@
 #include <SDL.h>
 #include "figures.hpp"
 #include "vector2.hpp"
+#include "collider.cpp"
 
 // Player structure
 struct Player
@@ -28,11 +28,11 @@ struct Player
     float width;
     float height;
     vector2 velocity;
-    std::vector<vector2> collider;
-    // Collider playerCollider;
+    // std::vector<vector2> collider;
+    Collider playerCollider;
     // float dt;
 
-    float gravity = 2.0f;
+    float gravity = 1.6f;
     float jumpForce = 14.0f;
     float moveSpeed = 2.0f;
 
@@ -45,11 +45,10 @@ struct Player
     // const uint8_t* keystates;
     float heath = 10;
     int falling = 0;
-    int climbing = 0;
     int crouch = 0;
     bool curTrig_d = false, curTrig_a = false, curTrig_s = false, curTrig_w = false;
-    int mining = 0;
-    bool mineTrig = false;
+    float mining = 0.0f;
+    float mineSpeed = 0.5f;
 
     public:
     Player(vector2 _pos, float _w, float _h);
@@ -66,10 +65,7 @@ struct Player
     float GetHeight();
     void  SetHeight(float h);
 
-    void UpdateCollider();
-    std::vector<vector2>* getCollider();
-
-    // Collider& GetCollider();
+    Collider& GetCollider();
     void UpdateCollisionX(float depth);
     void UpdateCollisionY(float depth);
     void UpdateCollision(vector2 collision);
@@ -78,6 +74,8 @@ struct Player
     vector2 GetCursorPosition();
 
     bool IsMining();
+    float GetMining();
+    void ResetMining(bool t);
 
     void UpdateInputY(float dt, const uint8_t* keystates);
     void UpdateInputX(float dt, const uint8_t* keystates);
@@ -89,5 +87,3 @@ struct Player
 
     // vector2 GetDepth();
 };
-
-#endif
