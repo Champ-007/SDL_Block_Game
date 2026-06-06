@@ -32,6 +32,11 @@ float GameRenderer::TextureHtoW(SDL_Texture* texture, float h)
     return h * ((float)size.x / size.y);
 }
 
+SDL_Color GameRenderer::MultBrightness(SDL_Color color, float v)
+{
+    return {static_cast<Uint8>(color.r * v), static_cast<Uint8>(color.g * v), static_cast<Uint8>(color.b * v), color.a};
+}
+
 SDL_Rect GameRenderer::SDL_RectRound(SDL_FRect rect)
 {
     SDL_Rect newRect = {(int)std::round(rect.x), (int)std::round(rect.y), (int)std::round(rect.w), (int)std::round(rect.h)};
@@ -132,12 +137,6 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
         // std::cout << "Debug: Starting chunk render." << std::endl;
         
         const BlockDef& def = BlockRegistry::get(block);
-        
-        // Do not render empty space
-        if (def.name == "air")
-        {
-            continue;
-        }
 
         // Get essential data from the object
         vector2 block_position = {
@@ -189,9 +188,29 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
         light_data = (Uint8)std::max({int(floor(sky_light_level * sky_light)), int(block_light_level)});
         top_left_color = {light_data, light_data, light_data, 255};
 
-        // Atlas width = 16, make sure to update these figures if the atlas ever changes
+        // Solid Light
+        float block_light = std::max({(int)floor(chunk->GetSkyLight(i) * sky_light), (int)floor(chunk->GetBlockLight(i))});
+        Uint8 block_light_int = floor(block_light);
+        SDL_Color block_light_color = {block_light_int, block_light_int, block_light_int, 255};
+        
+        // Atlas width = 32, make sure to update these figures if the atlas ever changes
+        // block UVs
         int atlas_x = def.textureIndex % 32;
         int atlas_y = floor(def.textureIndex / 32);
+
+        // background UVs
+        int background_x = 0;
+        int background_y = 0;
+        if (chunk->GetBiome() == -1)
+        {
+            background_x = 19;
+            background_y = 10;
+        }
+        else if (chunk->GetBiome() == 1)
+        {
+            background_x = 20;
+            background_y = 3;
+        }
 
         // texture height = 16, make sure to update these figures if the atlas ever changes
         // 1 / 16 = 0.0625
@@ -201,42 +220,74 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
         float tran_y = 0.0625f;
         float texture_x = tran_x * atlas_x;
         float texture_y = tran_y * atlas_y;
+        float background_texture_x = tran_x * background_x;
+        float background_texture_y = tran_y * background_y;
 
-        // Define four corners of the quad
-        float block_light = std::max({(int)floor(chunk->GetSkyLight(i) * sky_light), (int)floor(chunk->GetBlockLight(i))});
-        Uint8 block_light_int = floor(block_light);
-        SDL_Color block_light_color = {block_light_int, block_light_int, block_light_int, 255};
+        // Put another quad behind the block's quad
+        if (def.isTransparent && chunk->GetBiome() != 0)
+        {
+            // SDL_Vertex v1 = {{x, y}, block_light_color, {static_cast<float>(texture_x), static_cast<float>(texture_y)}};
+            // SDL_Vertex v2 = {{x + r, y}, block_light_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y)}};
+            // SDL_Vertex v3 = {{x + r, y + r}, block_light_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y + tran_y)}};
+            // SDL_Vertex v4 = {{x, y + r}, block_light_color, {static_cast<float>(texture_x), static_cast<float>(texture_y + tran_y)}};
+            
+            // Define four corners of the quad
+            float mult = 0.7f;
+            SDL_Vertex v1 = {{x, y}, MultBrightness(top_left_color, mult), {static_cast<float>(background_texture_x), static_cast<float>(background_texture_y)}};
+            SDL_Vertex v2 = {{x + r, y}, MultBrightness(top_right_color, mult), {static_cast<float>(background_texture_x + tran_x), static_cast<float>(background_texture_y)}};
+            SDL_Vertex v3 = {{x + r, y + r}, MultBrightness(bottom_right_color, mult), {static_cast<float>(background_texture_x + tran_x), static_cast<float>(background_texture_y + tran_y)}};
+            SDL_Vertex v4 = {{x, y + r}, MultBrightness(bottom_left_color, mult), {static_cast<float>(background_texture_x), static_cast<float>(background_texture_y + tran_y)}};
+            
+            int baseIndex = vertices.size();
+            vertices.push_back(v1);
+            vertices.push_back(v2);
+            vertices.push_back(v3);
+            vertices.push_back(v4);
+            
+            // Define two triangles (quad)
+            indices.push_back(baseIndex);
+            indices.push_back(baseIndex + 1);
+            indices.push_back(baseIndex + 2);
+            indices.push_back(baseIndex);
+            indices.push_back(baseIndex + 2);
+            indices.push_back(baseIndex + 3);
+        }
 
-        // SDL_Vertex v1 = {{x, y}, block_light_color, {static_cast<float>(texture_x), static_cast<float>(texture_y)}};
-        // SDL_Vertex v2 = {{x + r, y}, block_light_color, {static_cast<float>(texture_x + 0.03125), static_cast<float>(texture_y)}};
-        // SDL_Vertex v3 = {{x + r, y + r}, block_light_color, {static_cast<float>(texture_x + 0.03125), static_cast<float>(texture_y + 0.0625)}};
-        // SDL_Vertex v4 = {{x, y + r}, block_light_color, {static_cast<float>(texture_x), static_cast<float>(texture_y + 0.0625)}};
-        
-        SDL_Vertex v1 = {{x, y}, top_left_color, {static_cast<float>(texture_x), static_cast<float>(texture_y)}};
-        SDL_Vertex v2 = {{x + r, y}, top_right_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y)}};
-        SDL_Vertex v3 = {{x + r, y + r}, bottom_right_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y + tran_y)}};
-        SDL_Vertex v4 = {{x, y + r}, bottom_left_color, {static_cast<float>(texture_x), static_cast<float>(texture_y + tran_y)}};
-        
-        int baseIndex = vertices.size();
-        vertices.push_back(v1);
-        vertices.push_back(v2);
-        vertices.push_back(v3);
-        vertices.push_back(v4);
-
-        // Define two triangles (quad)
-        indices.push_back(baseIndex);
-        indices.push_back(baseIndex + 1);
-        indices.push_back(baseIndex + 2);
-        indices.push_back(baseIndex);
-        indices.push_back(baseIndex + 2);
-        indices.push_back(baseIndex + 3);
+        // The block's quad
+        if (def.name != "air")
+        {
+            // SDL_Vertex v1 = {{x, y}, block_light_color, {static_cast<float>(texture_x), static_cast<float>(texture_y)}};
+            // SDL_Vertex v2 = {{x + r, y}, block_light_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y)}};
+            // SDL_Vertex v3 = {{x + r, y + r}, block_light_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y + tran_y)}};
+            // SDL_Vertex v4 = {{x, y + r}, block_light_color, {static_cast<float>(texture_x), static_cast<float>(texture_y + tran_y)}};
+            
+            // Define four corners of the quad
+            SDL_Vertex v1 = {{x, y}, top_left_color, {static_cast<float>(texture_x), static_cast<float>(texture_y)}};
+            SDL_Vertex v2 = {{x + r, y}, top_right_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y)}};
+            SDL_Vertex v3 = {{x + r, y + r}, bottom_right_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y + tran_y)}};
+            SDL_Vertex v4 = {{x, y + r}, bottom_left_color, {static_cast<float>(texture_x), static_cast<float>(texture_y + tran_y)}};
+            
+            int baseIndex = vertices.size();
+            vertices.push_back(v1);
+            vertices.push_back(v2);
+            vertices.push_back(v3);
+            vertices.push_back(v4);
+            
+            // Define two triangles (quad)
+            indices.push_back(baseIndex);
+            indices.push_back(baseIndex + 1);
+            indices.push_back(baseIndex + 2);
+            indices.push_back(baseIndex);
+            indices.push_back(baseIndex + 2);
+            indices.push_back(baseIndex + 3);
+        }
     }
     
     // SDL_SetRenderDrawBlendMode
     SDL_RenderGeometry(renderer, textures->at(3), vertices.data(), (int)vertices.size(), indices.data(), (int)indices.size());
 }
 
-void GameRenderer::RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, Camera camera)
+void GameRenderer::RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, float dt, Camera camera)
 {
     // Debug
     // std::cout << "Debug: beginning new frame." << std::endl;
@@ -264,7 +315,105 @@ void GameRenderer::RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEn
 
     // Render player
     RenderPlayer(textures->at(2), player, camera);
+
+    RenderDebug(textures, dt);
     
     // Present the renderer
     SDL_RenderPresent(renderer);
+}
+
+void GameRenderer::RenderDebug(std::vector<SDL_Texture*>* textures, float dt)
+{
+    // SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+    if (FPSRefreshCountdown == 0)
+    {
+        int fps = 1000 / (dt / 0.02f);
+        FPS = fps;
+        FPSRefreshCountdown = 4;
+    }
+    else
+    {
+        FPSRefreshCountdown -= 1;
+    }
+
+    int letterSize = 16;
+
+    float scale = 1.0f;
+
+    // std::cout << "FPS: " << fps << std::endl;
+    std::string str = std::to_string(FPS) + " FPS";
+    SDL_FRect rect = {10, 10, letterSize * scale, letterSize * scale};
+    for (char ch : str)
+    {
+        //std::cout << "Debug: char = " << ch << std::endl;
+
+        int textureIndex = 0;
+        switch (ch)
+        {
+            case '0':
+                textureIndex = 0+16;
+                break;
+            case '1':
+                textureIndex = 1+16;
+                break;
+            case '2':
+                textureIndex = 2+16;
+                break;
+            case '3':
+                textureIndex = 3+16;
+                break;
+            case '4':
+                textureIndex = 4+16;
+                break;
+            case '5':
+                textureIndex = 5+16;
+                break;
+            case '6':
+                textureIndex = 6+16;
+                break;
+            case '7':
+                textureIndex = 7+16;
+                break;
+            case '8':
+                textureIndex = 8+16;
+                break;
+            case '9':
+                textureIndex = 9+16;
+                break;
+            case 'F':
+                textureIndex = 38;
+                break;
+            case 'P':
+                textureIndex = 48;
+                break;
+            case 'S':
+                textureIndex = 51;
+                break;
+            default:
+                textureIndex = 0;
+                break;
+        }
+
+
+        // std::cout << "Debug: textureIndex = " << textureIndex << std::endl;
+
+        // Atlas width = 16, make sure to update these figures if the atlas ever changes
+        int atlas_x = textureIndex % 16;
+        int atlas_y = floor(textureIndex / 16);
+
+        // texture height = 16, make sure to update these figures if the atlas ever changes
+        // 1 / 16 = 0.0625
+        // Texture atlas width = 16, make sure to update these figures if the atlas ever changes
+        // 1 / 16 = 0.0625
+        float tran_x = 0.0625f;
+        float tran_y = 0.0625f;
+        float texture_x = atlas_x * letterSize;
+        float texture_y = atlas_y * letterSize;
+
+        SDL_Rect src_rect = {static_cast<int>(texture_x), static_cast<int>(texture_y), 16, 16};
+
+        SDL_RenderCopyF(renderer, textures->at(4), &src_rect, &rect);
+        rect.x += letterSize * scale;
+    }
 }

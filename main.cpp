@@ -138,8 +138,6 @@ int LoadSave(std::string str, ChunkEngine& engine, Player& player)
         std::cerr << "Error: failed to open file: " << str << std::endl;
         return 1;
     }
-
-    std::cout << "Debug: Successfully loaded file: " << str << std::endl;
     
     // Read each line
     while (file >> input)
@@ -222,18 +220,24 @@ int main(int argc, char* argv[])
     SDL_Event SDLwindowEvent;
     SDL_Surface* SDLsurface = nullptr;
     SDL_Texture* SDLtexture = nullptr;
-    int imageAssetsc = 4;
+    int imageAssetsc = 5;
     const char* imageAssetsv[] = {
         "assets/environment/day.jpg", 
         "assets/environment/night3.jpg",
         "assets/characters/man_idle1.png",
-        "assets/minecraft/atlas_v2.png"
+        "assets/minecraft/atlas_v2.png",
+        "assets/symbols/textAtlas.jpg",
+        "assets/environment/cave_background2.jpg",
+        "assets/environment/fortress_background.jpg"
     };
     const char* imageAssetsn[] = {
         "day_background", 
         "night_background",
         "man_1",
-        "atlas"
+        "atlas",
+        "text",
+        "cave_background",
+        "fortress_background"
     };
 
     Camera camera({0, 0}, 3.5f);
@@ -245,7 +249,7 @@ int main(int argc, char* argv[])
     
     ChunkEngine chunk_engine;
 
-    Player player({0, 0}, 14, 28);
+    Player player({0, 0}, 12, 28);
 
     bool physics = false;
 
@@ -296,7 +300,7 @@ int main(int argc, char* argv[])
     camera.setDisplay(DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
     // Initialize renderer
-    SDLrenderer = SDL_CreateRenderer(SDLwindow, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+    SDLrenderer = SDL_CreateRenderer(SDLwindow, -1, SDL_RENDERER_ACCELERATED /*| SDL_RENDERER_PRESENTVSYNC*/);
     if (SDLrenderer == nullptr)
     {
         std::cerr << "SDL failed to create SDLrenderer. SDL error: " << SDL_GetError() << std::endl;
@@ -342,10 +346,7 @@ int main(int argc, char* argv[])
     // Pre-rendering
     GameRenderer gameRenderer(SDLrenderer);
     gameRenderer.SetSkyLight(0.6f);
-    std::cout << "Debug: beginning initial render." << std::endl;
-    SDL_Point size = {(int)player.GetWidth(), (int)player.GetHeight()};
-    gameRenderer.RenderEverything(&textures, chunk_engine, player, camera);
-    std::cout << "Debug: inital render successful." << std::endl;
+    // gameRenderer.RenderEverything(&textures, chunk_engine, player, camera);
 
     bool skipEarlyPhysics = true;
 
@@ -403,14 +404,14 @@ int main(int argc, char* argv[])
         // Camera tracks player
         vector2 target = {player.GetPosition().x - (camera.displayWidth / 2 / camera.zoomMult), player.GetPosition().y - (camera.displayHeight / 2 / camera.zoomMult)};
         vector2 diff = target - camera.position;
-        camera.position += diff * 0.2f;
+        camera.position += diff * 0.2f * dt;
 
         // std::cout << "Debug: camera position = (" << camera.position.x << ", " << camera.position.y << ")" << std::endl;
         // if (keystates[SDL_SCANCODE_UP])  {camera.zoomMult += 0.01f * dt;}
         // if (keystates[SDL_SCANCODE_DOWN]){camera.zoomMult -= 0.01f * dt;}
         
         // Call rendering
-        gameRenderer.RenderEverything(&textures, chunk_engine, player, camera);
+        gameRenderer.RenderEverything(&textures, chunk_engine, player, dt, camera);
 
     }
 

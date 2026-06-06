@@ -17,7 +17,7 @@
 #include "blockRegistry.hpp"
 
 const int LIGHT_DECAY_SKY = 64;
-const int LIGHT_DECAY_BLOCK = 48;
+const int LIGHT_DECAY_BLOCK = 32;
 
 const int foo = 67;
 
@@ -57,19 +57,22 @@ struct Chunk
     private:
     std::vector<int> blocks;
     ChunkCoord pos;
-
+    
     std::vector<int> sky_lights;
     std::vector<int> block_lights;
-    std::vector<int> edge_light;
-
+    
     // Light Propagation Queue
     std::queue<int> LUQ;
     std::vector<bool> in_queue;
-
+    
     ChunkEngine* master;
-
+    
+    int biome;
+    
     public:
     Chunk(ChunkCoord c, int seed, ChunkEngine* _master);
+
+    int GetBiome();
 
     ChunkCoord GetPosition();
 

@@ -32,8 +32,8 @@ struct Player
     Collider playerCollider;
     // float dt;
 
-    float gravity = 1.6f;
-    float jumpForce = 14.0f;
+    float gravity = 2.0f;
+    float jumpForce = 15.8f;
     float moveSpeed = 2.0f;
 
     vector2 cursor_position;

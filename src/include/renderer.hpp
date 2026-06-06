@@ -41,6 +41,9 @@ struct GameRenderer
 
     float sky_light = 0.6f;
 
+    int FPSRefreshCountdown = 0;
+    int FPS;
+
     public:
     GameRenderer(SDL_Renderer* _renderer);
 
@@ -52,6 +55,8 @@ struct GameRenderer
     float TextureWtoH(SDL_Texture* texture, float w);
     
     float TextureHtoW(SDL_Texture* texture, float h);
+
+    SDL_Color MultBrightness(SDL_Color color, float v);
     
     SDL_Rect SDL_RectRound(SDL_FRect rect);
     
@@ -64,6 +69,8 @@ struct GameRenderer
     
     void RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk, Camera camera, bool cursorView);
     
-    void RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, Camera camera);
+    void RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, float dt, Camera camera);
+
+    void RenderDebug(std::vector<SDL_Texture*>* textures, float dt);
 
 };

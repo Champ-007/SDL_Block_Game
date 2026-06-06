@@ -7,11 +7,15 @@ Chunk::Chunk(ChunkCoord c, int seed, ChunkEngine* _master)
     sky_lights.resize(CHUNK_LENGTH);
     block_lights.resize(CHUNK_LENGTH);
     in_queue.resize(CHUNK_LENGTH);
-    edge_light.resize(CHUNK_WIDTH * 4);
     pos = c;
     master = _master;
+    biome = 0;
     Generate(c, seed);
-    // UpdateLight();
+}
+
+int Chunk::GetBiome()
+{
+    return biome;
 }
 
 ChunkCoord Chunk::GetPosition()
@@ -162,16 +166,26 @@ int Chunk::SetBlock(int x, int y)
 void Chunk::Generate(ChunkCoord c, int seed)
 {
     // noise object for general terrain density
-    FastNoiseLite noise;
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    noise.SetFrequency(0.06f);
-    noise.SetSeed(seed);
+    FastNoiseLite terrain_noise;
+    terrain_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    terrain_noise.SetFrequency(0.06f);
+    terrain_noise.SetSeed(seed);
+    
+    // Noise object for biome
+    FastNoiseLite biome_noise;
+    biome_noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    biome_noise.SetFrequency(0.2f);
+    biome_noise.SetSeed(seed + 1);
     
     // Noise object for basic terrain details
-    FastNoiseLite noise2;
-    noise2.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-    noise2.SetFrequency(0.35f);
-    noise2.SetSeed(seed + 1);
+    FastNoiseLite details_noise;
+    details_noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+    details_noise.SetFrequency(0.35f);
+    details_noise.SetSeed(seed + 1);
+
+    float biome_heat = biome_noise.GetNoise(floor(c.x), floor(c.y));
+    if (biome_heat < -0.5) biome = -1;
+    if (biome_heat > 0.5) biome = 1;
 
     for (int y = 0; y < CHUNK_WIDTH; y++)
     {
@@ -179,36 +193,42 @@ void Chunk::Generate(ChunkCoord c, int seed)
         {
             int index_x = x + (c.x * CHUNK_WIDTH);
             int index_y = y + (c.y * CHUNK_WIDTH);
-            float density  = noise.GetNoise((float)index_x, (float)index_y);
-            float density2 = noise2.GetNoise((float)index_x, (float)index_y);
+            float density  = terrain_noise.GetNoise((float)index_x, (float)index_y);
+            float density2 = details_noise.GetNoise((float)index_x, (float)index_y);
             int i = x + (y * CHUNK_WIDTH);
             sky_lights[i] = 0;
             block_lights[i] = 0;
             if (density < 0.0f)
             {
-                if (noise.GetNoise((float)index_x, (float)index_y + 1) > 0.0f)
+                if (terrain_noise.GetNoise((float)index_x, (float)index_y + 1) > 0.0f)
                 {
-                    if (density2 < -0.3)
+                    if (density2 < -0.4)
                     {
                         blocks[i] = BlockRegistry::getIDByName("yellow_flower");
                     }
-                    else if (density2 > 0.3)
+                    else if (density2 > 0.4)
                     {
                         blocks[i] = BlockRegistry::getIDByName("twigs");
                     }
                 }
                 else
                 {
-                    if (density2 < -0.3)
+                    float limit = 0.6;
+                    if (density2 < -limit)
                     {
                         blocks[i] = BlockRegistry::getIDByName("water");
                     }
-                    else blocks[i] = BlockRegistry::getIDByName("air");
+                    else if (density2 > limit)
+                    {
+                        blocks[i] = BlockRegistry::getIDByName("lava");
+                    }
+                    else
+                    blocks[i] = BlockRegistry::getIDByName("air");
                 }
             }
             else if (density < 0.4)
             {
-                if (noise.GetNoise((float)index_x, (float)index_y - 1) < 0.0f)
+                if (terrain_noise.GetNoise((float)index_x, (float)index_y - 1) < 0.0f)
                 {
                     blocks[i] = BlockRegistry::getIDByName("grass");
                 }
@@ -232,11 +252,6 @@ void Chunk::Generate(ChunkCoord c, int seed)
             LUQ.push(i);
         }
     }
-
-    for (int i = 0; i < CHUNK_WIDTH * 4; i++)
-    {
-        edge_light[i] = 0;
-    }
     
 }
 
@@ -257,7 +272,7 @@ void Chunk::GenerateSave(ChunkSave* save)
 
 void Chunk::UpdateLight()
 {
-    int budget = 500;
+    int budget = 300;
     while (!LUQ.empty() && budget > 0) 
     {
         int block_highest = 0;
@@ -326,6 +341,7 @@ void Chunk::UpdateLight()
 
         // raise light of block to either -1 of highest adjacent light, or native light of block, whichever is higher
         int sky_native = def.skyLight;
+        if (biome != 0) sky_native = 0;
         int block_native = def.blockLight;
         sky_lights[index] = std::max({sky_native, sky_highest - LIGHT_DECAY_SKY, 0});
         block_lights[index] = std::max({block_native, block_highest - LIGHT_DECAY_BLOCK, 0});
@@ -624,8 +640,9 @@ bool ChunkEngine::MineBlock(vector2 pos_block, float mining)
         };
 
         vector2 pos_in_chunk = pos_block - chunk_blockPos;
+        BlockDef def = BlockRegistry::get(it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y));
 
-        if (mining >= BlockRegistry::get(it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y)).mineStrength)
+        if (mining >= def.mineStrength && def.mineable)
         {
             int block = it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y);
             BlockDef def = BlockRegistry::get(block);
