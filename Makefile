@@ -8,6 +8,9 @@ OBJECTS = obj/main.o obj/renderer.o obj/chunks.o obj/player.o obj/physics.o obj/
 
 all: main
 
+# build: main
+# 	tar -a -cf BlockGame.zip dll
+
 debug: CXXFLAGS += -g
 debug: objectDir $(OBJECTS)
 	g++ -Wall -L $(SDL_LIBS) -o dll/main.exe $(OBJECTS) -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -g

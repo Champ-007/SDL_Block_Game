@@ -14,4 +14,7 @@
 #include "player.hpp"
 #include "collider.cpp"
 
-void UpdatePlayerPhysics(Player& player, ChunkEngine& engine, float dt, const uint8_t* keystates);
+namespace Physics
+{
+    void UpdatePlayer(Player& player, ChunkEngine& engine, float dt, const uint8_t* keystates);
+}

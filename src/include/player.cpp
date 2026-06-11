@@ -8,6 +8,7 @@ Player::Player(vector2 _pos, float _w, float _h)
     height = _h;
     velocity = {0, 0};
     playerCollider.Build(_w, _h);
+    inventory.clear();
 }
 
 vector2 Player::GetPosition()
@@ -57,7 +58,8 @@ Collider& Player::GetCollider()
 
 void Player::UpdateCollisionX(float depth)
 {
-    if (depth != 0)
+    bool opposite = (depth > 0 && velocity.x < 0) || (depth < 0 && velocity.x > 0);
+    if (depth != 0 && opposite)
     {
         position += depth;
         // std::cout << "position x = " << position.x << std::endl;
@@ -68,7 +70,8 @@ void Player::UpdateCollisionX(float depth)
 
 void Player::UpdateCollisionY(float depth)
 {
-    if (depth != 0)
+    bool opposite = (depth > 0 && velocity.y < 0) || (depth < 0 && velocity.y > 0);
+    if (depth != 0 && opposite)
     {
         position.y += depth;
         velocity.y = 0.0f;
@@ -117,7 +120,12 @@ vector2 Player::GetCursorPosition()
 
 bool Player::IsMining()
 {
-    return mining > 0.0f;
+    return mining > 0.0f && tool == 1;
+}
+
+bool Player::IsBuilding()
+{
+    return mining == 1.0f && tool == 0;
 }
 
 float Player::GetMining()
@@ -128,6 +136,39 @@ float Player::GetMining()
 void Player::ResetMining(bool t)
 {
     if (t) mining = 0.0f;
+}
+
+void Player::PickUpItem(BlockID id, int count)
+{
+    if (count > 1) PickUpItem(id, count - 1);
+
+    // Add item to nearest open stack
+    for (auto& item : inventory)
+    {
+        if (item.first == id && item.second < inventoryStackMax)
+        {
+            item.second += 1;
+            return;
+        }
+    }
+
+    // Try to create new inventory slot item
+    if (inventory.size() < inventorySlotsMax)
+    {
+        inventory.push_back({id, 1});
+        return;
+    }
+
+    // Defaulting. Right now a maxed inventory means items are burned to the void.
+
+    // Debug inventory
+    // int slot = 1;
+    // for (auto item : inventory)
+    // {
+    //     std::cout << "Inventory slot " << slot << ": " << item.first << ", " << item.second << std::endl;
+    //     slot++;
+    // }
+    // std::cout << "---" << std::endl;
 }
 
 void Player::UpdateInputY(float dt, const uint8_t* keystates)
@@ -169,29 +210,6 @@ void Player::UpdateInputX(float dt, const uint8_t* keystates)
 
 void Player::UpdateInput(float dt, const uint8_t* keystates)
 {
-    // keystates = _keystates;
-
-    // Vertical movement
-    // if (crouch == 0)
-    // {
-    //     if (keystates[SDL_SCANCODE_SPACE] && falling < 4)
-    //     {
-    //         velocity.y = -jumpForce;
-    //     }
-    // }
-    // velocity.y += gravity * dt;
-    // falling += 1;
-    
-    // Horisontal movement
-    // float right = (int)keystates[SDL_SCANCODE_D];
-    // float left  = (int)keystates[SDL_SCANCODE_A];
-    // float move_x = right - left;
-    // if (crouch == 0)
-    // {
-    //     velocity.x += move_x * moveSpeed;
-    // }
-    // velocity.x *= 0.8f;
-
     // Cursor Movement
     if (crouch == 1)
     {
@@ -248,14 +266,50 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
         }
 
         // Mine
-        if (keystates[SDL_SCANCODE_LEFT])
+        if (keystates[SDL_SCANCODE_LEFT] && tool == 1)
         {
-            mining += mineSpeed;
+            mining += mineSpeed * dt;
         }
-        else if (!keystates[SDL_SCANCODE_LEFT])
+
+        // Build
+        if (keystates[SDL_SCANCODE_LEFT] && tool == 0)
+        {
+            mining = 1.0f;
+        }
+
+        if (!keystates[SDL_SCANCODE_LEFT])
         {
             mining = 0.0f;
         }
+    }
+
+    // Switch Tool
+    if (keystates[SDL_SCANCODE_Q])
+    {
+        tool = 0;
+        ResetMining(true);
+        // std::cout << "Debug: switching to build tool" << std::endl;
+    }
+    if (keystates[SDL_SCANCODE_E])
+    {
+        tool = 1;
+        ResetMining(true);
+        // std::cout << "Debug: switching to mining tool" << std::endl;
+    }
+
+    // Change Inventory slot
+    if (keystates[SDL_SCANCODE_UP] && selectChangeTrig == false)
+    {
+        select += 1;
+        if (select >= inventory.size() || select < 0)
+        {
+            select = 0;
+        }
+        selectChangeTrig = true;
+    }
+    else if (!keystates[SDL_SCANCODE_UP] && true)
+    {
+        selectChangeTrig = false;
     }
 
     // Crouching
@@ -273,6 +327,21 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
 
     // position += velocity * dt;
 
+}
+
+std::list<std::pair<BlockID, int>>& Player::GetInventory()
+{
+    return inventory;
+}
+
+int Player::GetInventorySelect()
+{
+    return select;
+}
+
+void Player::ResetInventorySelect()
+{
+    select = 0;
 }
 
 bool Player::GetVelDir()

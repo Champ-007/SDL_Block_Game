@@ -150,14 +150,10 @@ int Chunk::GetBlock(int i)
     return blocks[i];
 }
 
-int Chunk::SetBlock(int x, int y)
+int Chunk::SetBlock(int x, int y, BlockID block)
 {
-    int new_block = 0;
+    int new_block = block;
     BlockDef def = BlockRegistry::get(blocks[x + (y * CHUNK_WIDTH)]);
-    if (def.name == "air") new_block = BlockRegistry::getIDByName("dirt");
-    else if (def.name == "dirt") new_block = BlockRegistry::getIDByName("yellow_flower");
-    else if (def.name == "yellow_flower") new_block = BlockRegistry::getIDByName("air");
-    else new_block = BlockRegistry::getIDByName("air");
 
     blocks[x + (y * CHUNK_WIDTH)] = new_block;
     return new_block;
@@ -226,7 +222,7 @@ void Chunk::Generate(ChunkCoord c, int seed)
                     blocks[i] = BlockRegistry::getIDByName("air");
                 }
             }
-            else if (density < 0.4)
+            else if (density < 0.4 && biome == 0)
             {
                 if (terrain_noise.GetNoise((float)index_x, (float)index_y - 1) < 0.0f)
                 {
@@ -239,9 +235,13 @@ void Chunk::Generate(ChunkCoord c, int seed)
             }
             else
             {
-                if (density2 < -0.3f)
+                if (density2 < -0.4f)
                 {
                     blocks[i] = BlockRegistry::getIDByName("gold_ore");
+                }
+                else if (density2 > 0.4)
+                {
+                    blocks[i] = BlockRegistry::getIDByName("gravel");
                 }
                 else
                 {
@@ -435,6 +435,10 @@ bool Chunk::Update()
 
 ChunkEngine::ChunkEngine()
 {
+    chunk_radius = 2;
+    sky_light = 1.0f;
+    light_decay = 16;
+
     std::random_device rd;
     world_seed = rd();
     BlockRegistry::Init();
@@ -530,7 +534,6 @@ void ChunkEngine::UpdateWorld(vector2 pos)
     int cam_chunk_y = static_cast<int>(floor(pos.y / static_cast<float>(CHUNK_WIDTH * BLOCK_WIDTH)));
 
     // Spawn new chunks / track what chunks are in our desired zone
-    // std::vector<ChunkCoord> coords;
     for (int dx = -chunk_radius; dx <= chunk_radius; dx++)
     {
         for (int dy = -chunk_radius; dy <= chunk_radius; dy++)
@@ -541,8 +544,6 @@ void ChunkEngine::UpdateWorld(vector2 pos)
             };
             
             auto [it, inserted] = CreateChunk(target);
-
-            // coords.push_back(target);
         }
     }
 
@@ -623,7 +624,7 @@ vector2 ChunkEngine::CollidePoint(vector2 pos)
     else return {0, 0};
 }
 
-bool ChunkEngine::MineBlock(vector2 pos_block, float mining)
+std::pair<bool, BlockID> ChunkEngine::MineBlock(vector2 pos_block, float mining)
 {
     ChunkCoord pos_chunk = {
         static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
@@ -644,8 +645,74 @@ bool ChunkEngine::MineBlock(vector2 pos_block, float mining)
 
         if (mining >= def.mineStrength && def.mineable)
         {
-            int block = it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y);
-            BlockDef def = BlockRegistry::get(block);
+            int block_old = it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y);
+            int block_new = it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y, BlockRegistry::getIDByName("air"));
+            BlockDef def = BlockRegistry::get(block_new);
+            it->second->AddBlockToQueue((int)pos_in_chunk.x, (int)pos_in_chunk.y);
+            ChunkSave* save = ChunkSaveExists(pos_chunk);
+            if (save != nullptr)
+            {
+                int index = pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH);
+                bool block_exists = false;
+                int block_list_index = 0;
+                
+                for (int i = 0; i < save->positions.size(); i++)
+                {
+                    if (save->positions[i] == index)
+                    {
+                        block_exists = true;
+                        block_list_index = i;
+                    }
+                }
+    
+                if (block_exists)
+                {
+                    save->blocks.at(block_list_index) = block_new;
+                }
+                else
+                {
+                    save->blocks.push_back(block_new);
+                    save->positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
+                }
+            }
+            else
+            {
+                ChunkSave newChunkSave;
+                newChunkSave.coord = pos_chunk;
+                newChunkSave.blocks.push_back(block_new);
+                newChunkSave.positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
+                AddChunkSave(newChunkSave);
+            }
+            // if (block_old == 0) return {false, 0};
+
+            return {true, block_old};
+        }
+    }
+    return {false, 0};
+}
+
+bool ChunkEngine::BuildBlock(vector2 pos_block, BlockID block)
+{
+    ChunkCoord pos_chunk = {
+        static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
+        static_cast<int>(floor(pos_block.y / CHUNK_WIDTH))
+    };
+
+    auto it  = chunks.find(pos_chunk);
+
+    if (it != chunks.end())
+    {
+        vector2 chunk_blockPos = {
+            pos_chunk.x * CHUNK_WIDTH,
+            pos_chunk.y * CHUNK_WIDTH
+        };
+
+        vector2 pos_in_chunk = pos_block - chunk_blockPos;
+        BlockDef def = BlockRegistry::get(it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y));
+
+        if (def.placeOver)
+        {
+            it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y, block);
             it->second->AddBlockToQueue((int)pos_in_chunk.x, (int)pos_in_chunk.y);
             ChunkSave* save = ChunkSaveExists(pos_chunk);
             if (save != nullptr)
@@ -684,6 +751,7 @@ bool ChunkEngine::MineBlock(vector2 pos_block, float mining)
             return true;
         }
     }
+
     return false;
 }
 
@@ -782,4 +850,3 @@ void ChunkEngine::QueueBlock(vector2 block_pos)
         it->second->AddBlockToQueue(pos_in_chunk.x, pos_in_chunk.y);
     }
 }
-

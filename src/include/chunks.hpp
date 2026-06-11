@@ -55,7 +55,7 @@ struct ChunkSave
 struct Chunk
 {
     private:
-    std::vector<int> blocks;
+    std::vector<BlockID> blocks;
     ChunkCoord pos;
     
     std::vector<int> sky_lights;
@@ -96,7 +96,7 @@ struct Chunk
 
     int GetBlock(int i);
     int GetBlock(int x, int y);
-    int SetBlock(int x, int y);
+    int SetBlock(int x, int y, BlockID block);
 
     void UpdateEdgeQueue();
 
@@ -124,9 +124,9 @@ struct ChunkEngine
 
     int world_seed;
 
-    int chunk_radius = 2;
-    float sky_light = 1.0f;
-    int light_decay = 16;
+    int chunk_radius;
+    float sky_light;
+    int light_decay;
 
     public:
     ChunkEngine();
@@ -157,7 +157,9 @@ struct ChunkEngine
 
     // vector2 GetCollision(vector2 pos);
     
-    bool MineBlock(vector2 pos, float mining);
+    std::pair<bool, BlockID> MineBlock(vector2 pos, float mining);
+    
+    bool BuildBlock(vector2 pos_block, BlockID block);
 
     std::pair<int, int> GetLight(vector2 block_pos);
 

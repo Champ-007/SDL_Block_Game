@@ -32,14 +32,15 @@ namespace BlockRegistry
 
     void Init()
     {
-        RegisterBlock({"air",           -1,  255, 0,   false, true,  15, true });
-        RegisterBlock({"grass",         320, 0,   0,   true,  true,  15, false});
-        RegisterBlock({"dirt" ,         136, 0,   0,   true,  true,  15, false});
-        RegisterBlock({"stone",         339, 0,   0,   true,  true,  25, false});
-        RegisterBlock({"gold_ore",      303, 0,   75,  true,  true,  25, false});
-        RegisterBlock({"yellow_flower", 205, 255, 255, false, true,  10, true });
-        RegisterBlock({"twigs",         199, 0,   0,   false, true,  10, true });
-        RegisterBlock({"water",         2,   0,   0,   false, false, 5,  true });
-        RegisterBlock({"lava",          0,   0,   255, false, false, 5,  false});
+        RegisterBlock({"air",           -1,  255, 0,   false, false, 15, true,  true });
+        RegisterBlock({"grass",         320, 0,   0,   true,  true,  15, false, false});
+        RegisterBlock({"dirt" ,         136, 0,   0,   true,  true,  15, false, false});
+        RegisterBlock({"stone",         339, 0,   0,   true,  true,  25, false, false});
+        RegisterBlock({"gold_ore",      303, 0,   75,  true,  true,  25, false, false});
+        RegisterBlock({"yellow_flower", 205, 255, 255, false, true,  10, false, true });
+        RegisterBlock({"twigs",         199, 255, 0,   false, true,  10, false, true });
+        RegisterBlock({"water",         2,   0,   0,   false, false, 5,  true,  true });
+        RegisterBlock({"lava",          0,   0,   255, false, false, 5,  true,  false});
+        RegisterBlock({"gravel",        324, 0,   0,   true,  true,  10, false, false});
     }
 }

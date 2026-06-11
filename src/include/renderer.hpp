@@ -29,6 +29,7 @@ struct Camera
     int displayWidth;
     int displayHeight;
 
+    Camera() = default;
     Camera(vector2 p, float zoom);
 
     void setDisplay(int w, int h);
@@ -38,6 +39,7 @@ struct GameRenderer
 {
     private:
     SDL_Renderer* renderer;
+    Camera camera;
 
     float sky_light = 0.6f;
 
@@ -50,6 +52,9 @@ struct GameRenderer
     float GetSkyLight();
     void  SetSkyLight(float v);
 
+    Camera* GetCamera();
+    void UpdateCamera(vector2 position, float dt);
+
     SDL_Point GetTextureSize(SDL_Texture* texture);
     
     float TextureWtoH(SDL_Texture* texture, float w);
@@ -61,16 +66,18 @@ struct GameRenderer
     SDL_Rect SDL_RectRound(SDL_FRect rect);
     
     void SDL_FRectCenter(SDL_FRect& rect);
-    vector2 WorldToScreen(vector2 position, Camera camera);
+    vector2 WorldToScreen(vector2 position);
     
-    vector2 ScreenToWorld(vector2 position, Camera camera);
+    vector2 ScreenToWorld(vector2 position);
     
-    void RenderPlayer(SDL_Texture* texture, Player& player, Camera camera);
+    void RenderPlayer(SDL_Texture* texture, Player& player, ChunkEngine* engine);
     
-    void RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk, Camera camera, bool cursorView);
+    void RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk, bool cursorView);
     
-    void RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, float dt, Camera camera);
+    void RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, float dt);
 
     void RenderDebug(std::vector<SDL_Texture*>* textures, float dt);
+
+    void RenderInventory(std::vector<SDL_Texture*>* textures, Player& player);
 
 };
