@@ -6,11 +6,13 @@ Chunk::Chunk(ChunkCoord c, int seed, ChunkEngine* _master)
     blocks.resize(CHUNK_LENGTH);
     sky_lights.resize(CHUNK_LENGTH);
     block_lights.resize(CHUNK_LENGTH);
-    in_queue.resize(CHUNK_LENGTH);
+    inLightQueue.resize(CHUNK_LENGTH);
     pos = c;
     master = _master;
     biome = 0;
     Generate(c, seed);
+    deltaTimeTotal = 0.0f;
+    deltaTimeLimit = 128.0f;
 }
 
 int Chunk::GetBiome()
@@ -30,7 +32,7 @@ void Chunk::SetPosition(ChunkCoord c)
 
 int Chunk::GetLightQueLength()
 {
-    return LUQ.size();
+    return LightUpdateQueue.size();
 }
 
 std::pair<int, int> Chunk::GetLight(int i)
@@ -123,21 +125,36 @@ int Chunk::TryGetBlockLight(int index, vector2 offset)
     }
 }
 
-void Chunk::AddBlockToQueue(int x, int y)
+void Chunk::AddToLightQueue(int x, int y)
 {
     if (x >= 0 && x < CHUNK_WIDTH && y >= 0 && y < CHUNK_WIDTH)
     {
-        if (!in_queue[x + (y * CHUNK_WIDTH)])
+        if (!inLightQueue[x + (y * CHUNK_WIDTH)])
         {
             // std::cout << "Debug: adding queue at " << x + (y * CHUNK_WIDTH) << std::endl;
-            LUQ.push(x + (y * CHUNK_WIDTH));
-            in_queue[x + (y * CHUNK_WIDTH)] = true;
+            LightUpdateQueue.push(x + (y * CHUNK_WIDTH));
+            inLightQueue[x + (y * CHUNK_WIDTH)] = true;
         }
     }
-    else
+    // else std::cout << "Error: bad queue attempt." << std::endl;
+}
+
+void Chunk::AddToBlockQueue(int x, int y)
+{
+    if (x >= 0 && x < CHUNK_WIDTH && y >= 0 && y < CHUNK_WIDTH)
     {
-        // std::cout << "Error: bad queue attempt." << std::endl;
+        BlockUpdateQueue.push_back(x + (y * CHUNK_WIDTH));
     }
+    // else std::cout << "Error: bad queue attempt." << std::endl;
+}
+
+void Chunk::AddToBlockIgnore(int x, int y)
+{
+    if (x >= 0 && x < CHUNK_WIDTH && y >= 0 && y < CHUNK_WIDTH)
+    {
+        BlockUpdateIgnore.push_back(x + (y * CHUNK_WIDTH));
+    }
+    // else std::cout << "Error: bad queue attempt." << std::endl;
 }
 
 int Chunk::GetBlock(int x, int y)
@@ -150,13 +167,57 @@ int Chunk::GetBlock(int i)
     return blocks[i];
 }
 
-int Chunk::SetBlock(int x, int y, BlockID block)
+void Chunk::SetBlock(int x, int y, BlockID block)
 {
-    int new_block = block;
-    BlockDef def = BlockRegistry::get(blocks[x + (y * CHUNK_WIDTH)]);
+    blocks[x + (y * CHUNK_WIDTH)] = block;
+}
 
-    blocks[x + (y * CHUNK_WIDTH)] = new_block;
-    return new_block;
+int Chunk::SafeGetBlock(vector2 pos_block)
+{
+    if (pos_block.x >= 0 && pos_block.x < CHUNK_WIDTH && pos_block.y >= 0 && pos_block.y < CHUNK_WIDTH)
+    {
+        return blocks[pos_block.x + (pos_block.y * CHUNK_WIDTH)];
+    }
+    else
+    {
+        vector2 world_block_pos = {
+            pos_block.x + (pos.x * CHUNK_WIDTH),
+            pos_block.y + (pos.y * CHUNK_WIDTH)
+        };
+
+        return master->GetBlock(world_block_pos);
+    }
+}
+
+void Chunk::SafeSetBlock(vector2 pos_block, BlockID block)
+{
+    if (pos_block.x >= 0 && pos_block.x < CHUNK_WIDTH && pos_block.y >= 0 && pos_block.y < CHUNK_WIDTH)
+    {
+        blocks[pos_block.x + (pos_block.y * CHUNK_WIDTH)] = block;
+        AddToLightQueue(pos_block.x, pos_block.y);
+
+        // Queue the block update and the four adjacent blocks
+        AddToBlockQueue(pos_block.x, pos_block.y);
+        AddToBlockQueue(pos_block.x + 1, pos_block.y); // right
+        AddToBlockQueue(pos_block.x - 1, pos_block.y); // left
+        AddToBlockQueue(pos_block.x, pos_block.y + 1); // down
+        AddToBlockQueue(pos_block.x, pos_block.y - 1); // up
+
+        vector2 chunk_pos_block = {
+            pos.x * CHUNK_WIDTH,
+            pos.y * CHUNK_WIDTH
+        };
+        master->AddBlockToChunkSave(chunk_pos_block, pos_block, block);
+    }
+    else
+    {
+        vector2 world_block_pos = {
+            pos_block.x + (pos.x * CHUNK_WIDTH),
+            pos_block.y + (pos.y * CHUNK_WIDTH)
+        };
+
+        master->SetBlock(world_block_pos, block);
+    }
 }
 
 void Chunk::Generate(ChunkCoord c, int seed)
@@ -248,8 +309,8 @@ void Chunk::Generate(ChunkCoord c, int seed)
                     blocks[i] = BlockRegistry::getIDByName("stone");
                 }
             }
-            in_queue[i] = true;
-            LUQ.push(i);
+            inLightQueue[i] = true;
+            LightUpdateQueue.push(i);
         }
     }
     
@@ -263,21 +324,62 @@ void Chunk::GenerateSave(ChunkSave* save)
         blocks.at(save->positions.at(i)) = save->blocks.at(i);
         if (save->blocks.at(i) == -1)
         {
-            LUQ.push(save->positions.at(i));
-            in_queue[save->positions.at(i)] = true;
+            LightUpdateQueue.push(save->positions.at(i));
+            inLightQueue[save->positions.at(i)] = true;
         }
     }
     
 }
 
+void Chunk::UpdateBlocks()
+{
+    // std::cout << "Debug: block update queue = " << BlockUpdateQueue.size() << std::endl;
+    int budget = 200;
+    while (!BlockUpdateQueue.empty() && budget > 0)
+    {
+        // Get the update location
+        int index = BlockUpdateQueue.front();
+        
+        // Check if the block update should be ignored
+        bool ignore = false;
+        for (int i : BlockUpdateIgnore)
+        {
+            if (index == i) ignore = true;
+        }
+
+        if (!ignore)
+        {
+            BlockID block = blocks[index];
+            BlockDef def = BlockRegistry::get(block);
+    
+            // Create the context and run the OnUpdate() function
+            BehaviorContext ctx;
+            ctx.block = block;
+            ctx.chunk = this;
+            ctx.x = floor(index % CHUNK_WIDTH);
+            ctx.y = floor(index / CHUNK_WIDTH);
+    
+            def.OnUpdate(ctx);
+
+        }
+        
+        // Iterate
+        BlockUpdateQueue.pop_front();
+        budget--;
+    }
+    BlockUpdateQueue.splice(BlockUpdateQueue.end(), BlockUpdateIgnore);
+    BlockUpdateIgnore.clear();
+}
+
 void Chunk::UpdateLight()
 {
+    // std::cout << "Debug: update light" << std::endl;
     int budget = 300;
-    while (!LUQ.empty() && budget > 0) 
+    while (!LightUpdateQueue.empty() && budget > 0) 
     {
         int block_highest = 0;
         int sky_highest = 0;
-        int index = LUQ.front();
+        int index = LightUpdateQueue.front();
         vector2 pos = {
             index % CHUNK_WIDTH,
             floor(index / CHUNK_WIDTH)
@@ -290,54 +392,35 @@ void Chunk::UpdateLight()
         // Get the highest surrounding light for block
         int sky_light;
         int block_light;
+        std::pair<int, int> light;
 
         // To the right
-        sky_light = TryGetSkyLight(index, {1, 0});
-        if (sky_light > sky_highest)
-        {
-            sky_highest = sky_light;
-        }
-        block_light = TryGetBlockLight(index, {1, 0});
-        if (block_light > block_highest)
-        {
-            block_highest = block_light;
-        }
+        light = TryGetLight(index, {1, 0});
+        sky_light = light.first;
+        block_light = light.second;
+        if (sky_light > sky_highest) sky_highest = sky_light;
+        if (block_light > block_highest) block_highest = block_light;
 
         // To the left
-        sky_light = TryGetSkyLight(index, {-1, 0});
-        if (sky_light > sky_highest)
-        {
-            sky_highest = sky_light;
-        }
-        block_light = TryGetBlockLight(index, {-1, 0});
-        if (block_light > block_highest)
-        {
-            block_highest = block_light;
-        }
+        light = TryGetLight(index, {-1, 0});
+        sky_light = light.first;
+        block_light = light.second;
+        if (sky_light > sky_highest) sky_highest = sky_light;
+        if (block_light > block_highest) block_highest = block_light;
 
         // To the up
-        sky_light = TryGetSkyLight(index, {0, -1});
-        if (sky_light > sky_highest)
-        {
-            sky_highest = sky_light;
-        }
-        block_light = TryGetBlockLight(index, {0, -1});
-        if (block_light > block_highest)
-        {
-            block_highest = block_light;
-        }
+        light = TryGetLight(index, {0, -1});
+        sky_light = light.first;
+        block_light = light.second;
+        if (sky_light > sky_highest) sky_highest = sky_light;
+        if (block_light > block_highest) block_highest = block_light;
 
         // To the down
-        sky_light = TryGetSkyLight(index, {0, 1});
-        if (sky_light > sky_highest)
-        {
-            sky_highest = sky_light;
-        }
-        block_light = TryGetBlockLight(index, {0, 1});
-        if (block_light > block_highest)
-        {
-            block_highest = block_light;
-        }
+        light = TryGetLight(index, {0, 1});
+        sky_light = light.first;
+        block_light = light.second;
+        if (sky_light > sky_highest) sky_highest = sky_light;
+        if (block_light > block_highest) block_highest = block_light; 
 
         // raise light of block to either -1 of highest adjacent light, or native light of block, whichever is higher
         int sky_native = def.skyLight;
@@ -352,10 +435,10 @@ void Chunk::UpdateLight()
             // To the right
             if (index % CHUNK_WIDTH != CHUNK_WIDTH - 1)
             {
-                if (!in_queue[index + 1])
+                if (!inLightQueue[index + 1])
                 {
-                    LUQ.push(index + 1);
-                    in_queue[index + 1] = true;
+                    LightUpdateQueue.push(index + 1);
+                    inLightQueue[index + 1] = true;
                 }
             }
             else
@@ -369,10 +452,10 @@ void Chunk::UpdateLight()
             // To the left
             if (index % CHUNK_WIDTH != 0)
             {
-                if (!in_queue[index - 1])
+                if (!inLightQueue[index - 1])
                 {
-                    LUQ.push(index - 1);
-                    in_queue[index - 1] = true;
+                    LightUpdateQueue.push(index - 1);
+                    inLightQueue[index - 1] = true;
                     // anything
                 }
             }
@@ -387,10 +470,10 @@ void Chunk::UpdateLight()
             // To the down
             if (index < CHUNK_LENGTH - CHUNK_WIDTH)
             {
-                if (!in_queue[index + CHUNK_WIDTH])
+                if (!inLightQueue[index + CHUNK_WIDTH])
                 {
-                    LUQ.push(index + CHUNK_WIDTH);
-                    in_queue[index + CHUNK_WIDTH] = true;
+                    LightUpdateQueue.push(index + CHUNK_WIDTH);
+                    inLightQueue[index + CHUNK_WIDTH] = true;
                 }
             }
             else
@@ -404,10 +487,10 @@ void Chunk::UpdateLight()
             // To the up
             if (index >= CHUNK_WIDTH)
             {
-                if (!in_queue[index - CHUNK_WIDTH])
+                if (!inLightQueue[index - CHUNK_WIDTH])
                 {
-                    LUQ.push(index - CHUNK_WIDTH);
-                    in_queue[index - CHUNK_WIDTH] = true;
+                    LightUpdateQueue.push(index - CHUNK_WIDTH);
+                    inLightQueue[index - CHUNK_WIDTH] = true;
                 }
             }
             else
@@ -421,14 +504,20 @@ void Chunk::UpdateLight()
             
         }
         
-        in_queue[index] = false;
-        LUQ.pop();
+        inLightQueue[index] = false;
+        LightUpdateQueue.pop();
         budget--;
     }
 }
 
-bool Chunk::Update()
+bool Chunk::Update(float dt)
 {
+    deltaTimeTotal += dt;
+    while (deltaTimeTotal > deltaTimeLimit)
+    {
+        UpdateBlocks();
+        deltaTimeTotal -= deltaTimeLimit;
+    }
     UpdateLight();
     return false;
 }
@@ -438,6 +527,7 @@ ChunkEngine::ChunkEngine()
     chunk_radius = 2;
     sky_light = 1.0f;
     light_decay = 16;
+    srand((unsigned int)time(NULL));
 
     std::random_device rd;
     world_seed = rd();
@@ -498,6 +588,49 @@ void ChunkEngine::AddChunkSave(ChunkSave save)
     saveData.push_back(save);
 }
 
+void ChunkEngine::AddBlockToChunkSave(vector2 chunk_pos_block, vector2 pos_in_chunk, BlockID block)
+{
+    ChunkCoord pos_chunk = {
+        static_cast<int>(chunk_pos_block.x / CHUNK_WIDTH),
+        static_cast<int>(chunk_pos_block.y / CHUNK_WIDTH)
+    };
+
+    ChunkSave* save = ChunkSaveExists(pos_chunk);
+    if (save != nullptr)
+    {
+        int index = pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH);
+        bool block_exists = false;
+        int block_list_index = 0;
+        
+        for (size_t i = 0; i < save->positions.size(); i++)
+        {
+            if (save->positions[i] == index)
+            {
+                block_exists = true;
+                block_list_index = i;
+            }
+        }
+
+        if (block_exists)
+        {
+            save->blocks.at(block_list_index) = block;
+        }
+        else
+        {
+            save->blocks.push_back(block);
+            save->positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
+        }
+    }
+    else
+    {
+        ChunkSave newChunkSave;
+        newChunkSave.coord = pos_chunk;
+        newChunkSave.blocks.push_back(block);
+        newChunkSave.positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
+        AddChunkSave(newChunkSave);
+    }
+}
+
 auto ChunkEngine::CreateChunk(const ChunkCoord& c)
 {
     ChunkSave* save = ChunkSaveExists(c);
@@ -516,13 +649,13 @@ auto ChunkEngine::CreateChunk(const ChunkCoord& c)
     }
 }
 
-int ChunkEngine::UpdateChunks()
+int ChunkEngine::UpdateChunks(float dt)
 {
     int count = 0;
     for (auto i = chunks.begin(); i != chunks.end(); ++i)
     {
         const auto& pair = *i;
-        pair.second->Update();
+        pair.second->Update(dt);
         count++;
     }
     return count;
@@ -543,14 +676,13 @@ void ChunkEngine::UpdateWorld(vector2 pos)
                 cam_chunk_y + dy
             };
             
-            auto [it, inserted] = CreateChunk(target);
+            CreateChunk(target);
         }
     }
 
     // Remove old chunks
     for (const auto& chunk : chunks)
     {
-        bool is_in = false;
         if (abs(chunk.first.x - cam_chunk_x) > chunk_radius + 1 || abs(chunk.first.y - cam_chunk_y) > chunk_radius + 1)
         {
             chunks.erase(chunk.first);
@@ -624,7 +756,7 @@ vector2 ChunkEngine::CollidePoint(vector2 pos)
     else return {0, 0};
 }
 
-std::pair<bool, BlockID> ChunkEngine::MineBlock(vector2 pos_block, float mining)
+BlockID ChunkEngine::GetBlock(vector2 pos_block)
 {
     ChunkCoord pos_chunk = {
         static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
@@ -641,117 +773,65 @@ std::pair<bool, BlockID> ChunkEngine::MineBlock(vector2 pos_block, float mining)
         };
 
         vector2 pos_in_chunk = pos_block - chunk_blockPos;
-        BlockDef def = BlockRegistry::get(it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y));
+        BlockID block = it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y);
+        return block;
+    }
+    return 0;
+}
 
-        if (mining >= def.mineStrength && def.mineable)
-        {
-            int block_old = it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y);
-            int block_new = it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y, BlockRegistry::getIDByName("air"));
-            BlockDef def = BlockRegistry::get(block_new);
-            it->second->AddBlockToQueue((int)pos_in_chunk.x, (int)pos_in_chunk.y);
-            ChunkSave* save = ChunkSaveExists(pos_chunk);
-            if (save != nullptr)
-            {
-                int index = pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH);
-                bool block_exists = false;
-                int block_list_index = 0;
-                
-                for (int i = 0; i < save->positions.size(); i++)
-                {
-                    if (save->positions[i] == index)
-                    {
-                        block_exists = true;
-                        block_list_index = i;
-                    }
-                }
-    
-                if (block_exists)
-                {
-                    save->blocks.at(block_list_index) = block_new;
-                }
-                else
-                {
-                    save->blocks.push_back(block_new);
-                    save->positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
-                }
-            }
-            else
-            {
-                ChunkSave newChunkSave;
-                newChunkSave.coord = pos_chunk;
-                newChunkSave.blocks.push_back(block_new);
-                newChunkSave.positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
-                AddChunkSave(newChunkSave);
-            }
-            // if (block_old == 0) return {false, 0};
+void ChunkEngine::SetBlock(vector2 pos_block, BlockID block)
+{
+    ChunkCoord pos_chunk = {
+        static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
+        static_cast<int>(floor(pos_block.y / CHUNK_WIDTH))
+    };
 
-            return {true, block_old};
-        }
+    auto it  = chunks.find(pos_chunk);
+
+    if (it != chunks.end())
+    {
+        vector2 chunk_blockPos = {
+            pos_chunk.x * CHUNK_WIDTH,
+            pos_chunk.y * CHUNK_WIDTH
+        };
+        vector2 pos_in_chunk = pos_block - chunk_blockPos;
+        
+        it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y, block);
+        it->second->AddToLightQueue(pos_in_chunk.x, pos_in_chunk.y);
+
+        // Queue the block update and the four adjacent blocks
+        it->second->AddToBlockQueue(pos_in_chunk.x, pos_in_chunk.y);
+        it->second->AddToBlockQueue(pos_in_chunk.x + 1, pos_in_chunk.y); // right
+        it->second->AddToBlockQueue(pos_in_chunk.x - 1, pos_in_chunk.y); // left
+        it->second->AddToBlockQueue(pos_in_chunk.x, pos_in_chunk.y + 1); // down
+        it->second->AddToBlockQueue(pos_in_chunk.x, pos_in_chunk.y - 1); // up
+        
+        AddBlockToChunkSave(chunk_blockPos, pos_in_chunk, block);
+    }
+
+}
+
+std::pair<bool, BlockID> ChunkEngine::MineBlock(vector2 pos_block, float mining)
+{
+    BlockID block = GetBlock(pos_block);
+    BlockDef def = BlockRegistry::get(block);
+    if (mining >= def.mineStrength && def.mineable)
+    {
+        SetBlock(pos_block, BlockRegistry::getIDByName("air"));
+        return {true, block};
     }
     return {false, 0};
 }
 
 bool ChunkEngine::BuildBlock(vector2 pos_block, BlockID block)
 {
-    ChunkCoord pos_chunk = {
-        static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
-        static_cast<int>(floor(pos_block.y / CHUNK_WIDTH))
-    };
-
-    auto it  = chunks.find(pos_chunk);
-
-    if (it != chunks.end())
+    BlockID block_old = GetBlock(pos_block);
+    BlockDef def = BlockRegistry::get(block_old);
+    if (def.placeOver)
     {
-        vector2 chunk_blockPos = {
-            pos_chunk.x * CHUNK_WIDTH,
-            pos_chunk.y * CHUNK_WIDTH
-        };
-
-        vector2 pos_in_chunk = pos_block - chunk_blockPos;
-        BlockDef def = BlockRegistry::get(it->second->GetBlock(pos_in_chunk.x, pos_in_chunk.y));
-
-        if (def.placeOver)
-        {
-            it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y, block);
-            it->second->AddBlockToQueue((int)pos_in_chunk.x, (int)pos_in_chunk.y);
-            ChunkSave* save = ChunkSaveExists(pos_chunk);
-            if (save != nullptr)
-            {
-                int index = pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH);
-                bool block_exists = false;
-                int block_list_index = 0;
-                
-                for (int i = 0; i < save->positions.size(); i++)
-                {
-                    if (save->positions[i] == index)
-                    {
-                        block_exists = true;
-                        block_list_index = i;
-                    }
-                }
-    
-                if (block_exists)
-                {
-                    save->blocks.at(block_list_index) = block;
-                }
-                else
-                {
-                    save->blocks.push_back(block);
-                    save->positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
-                }
-            }
-            else
-            {
-                ChunkSave newChunkSave;
-                newChunkSave.coord = pos_chunk;
-                newChunkSave.blocks.push_back(block);
-                newChunkSave.positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
-                AddChunkSave(newChunkSave);
-            }
-            return true;
-        }
+        SetBlock(pos_block, block);
+        return true;
     }
-
     return false;
 }
 
@@ -847,6 +927,6 @@ void ChunkEngine::QueueBlock(vector2 block_pos)
 
         vector2 pos_in_chunk = block_pos - chunk_worldPos;
 
-        it->second->AddBlockToQueue(pos_in_chunk.x, pos_in_chunk.y);
+        it->second->AddToLightQueue(pos_in_chunk.x, pos_in_chunk.y);
     }
 }

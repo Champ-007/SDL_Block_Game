@@ -2,9 +2,9 @@ SDL_INCLUDE = C:/msys64/mingw64/include/SDL2
 SDL_LIBS = C:/msys64/mingw64/lib
 SRC_INCLUDE = src/include
 
-CXXFLAGS = -I $(SDL_INCLUDE) -I $(SRC_INCLUDE)
+CXXFLAGS = -I $(SDL_INCLUDE) -I $(SRC_INCLUDE) -Wall
 
-OBJECTS = obj/main.o obj/renderer.o obj/chunks.o obj/player.o obj/physics.o obj/collider.o obj/blockRegistry.o
+OBJECTS = obj/main.o obj/renderer.o obj/chunks.o obj/player.o obj/physics.o obj/collider.o obj/blockRegistry.o obj/blockDef.o obj/blockBehavior.o
 
 all: main
 
@@ -38,6 +38,12 @@ obj/collider.o: src/include/collider.cpp
 
 obj/blockRegistry.o: src/include/blockRegistry.cpp src/include/blockRegistry.hpp
 	g++ $(CXXFLAGS) -c src/include/blockRegistry.cpp -o obj/blockRegistry.o
+
+obj/blockDef.o: src/include/blockDef.cpp src/include/blockDef.hpp
+	g++ $(CXXFLAGS) -c src/include/blockDef.cpp -o obj/blockDef.o
+
+obj/blockBehavior.o: src/include/blockBehavior.cpp src/include/blockBehavior.hpp
+	g++ $(CXXFLAGS) -c src/include/blockBehavior.cpp -o obj/blockBehavior.o
 
 objectDir:
 	if not exist obj mkdir obj

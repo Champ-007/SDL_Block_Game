@@ -213,12 +213,15 @@ int BakeSave(std::string str, ChunkEngine& engine, Player& player)
     writeFile << "seed " << engine.GetSeed() << ' ';
     // std::cout << "position " << round(player.GetPosition().x) << " " << round(player.GetPosition().y) << '\n';
     writeFile << "position " << round(player.GetPosition().x) << " " << round(player.GetPosition().y) << ' ';
-    writeFile << "inventory ";
-    for (auto& item : player.GetInventory())
+    if (!player.GetInventory().empty())
     {
-        writeFile << item.first << ' ' << item.second << " ";
+        writeFile << "inventory ";
+        for (auto& item : player.GetInventory())
+        {
+            writeFile << item.first << ' ' << item.second << " ";
+        }
+        writeFile << "endInventory ";
     }
-    writeFile << "endInventory ";
     for (auto i : engine.GetChunkSaves())
     {
         writeFile << "chunk " << i.coord.x << " " << i.coord.y << ' ';
@@ -245,8 +248,6 @@ int main(int argc, char* argv[])
     SDL_Window* SDLwindow = nullptr;
     SDL_Renderer* SDLrenderer = nullptr;
     SDL_Event SDLwindowEvent;
-    SDL_Surface* SDLsurface = nullptr;
-    SDL_Texture* SDLtexture = nullptr;
     int imageAssetsc = 5;
     const char* imageAssetsv[] = {
         "assets/environment/day.jpg", 
@@ -255,16 +256,15 @@ int main(int argc, char* argv[])
         "assets/minecraft/atlas_v2.png",
         "assets/symbols/textAtlas.jpg"
     };
-    const char* imageAssetsn[] = {
-        "day_background", 
-        "night_background",
-        "man_1",
-        "atlas",
-        "text"
-    };
+    // const char* imageAssetsn[] = {
+    //     "day_background", 
+    //     "night_background",
+    //     "man_1",
+    //     "atlas",
+    //     "text"
+    // };
 
     float dt          = 0.0f;
-    float dt_scale    = 0.02f;
     int SDL_ticks     = SDL_GetTicks64();
     int SDL_ticks_old = SDL_GetTicks64();
     
@@ -272,9 +272,7 @@ int main(int argc, char* argv[])
 
     Player player({0, 0}, 12, 28);
 
-    bool physics = false;
-
-    float day_speed = 0.005f;
+    double day_speed = 0.00003f;
     float day_time = 0.0f;
     float day_light = 0.0f;
     
@@ -313,7 +311,6 @@ int main(int argc, char* argv[])
         return 1;
     }
     
-    
     // Initialize renderer
     SDLrenderer = SDL_CreateRenderer(SDLwindow, -1, SDL_RENDERER_ACCELERATED /*| SDL_RENDERER_PRESENTVSYNC*/);
     if (SDLrenderer == nullptr)
@@ -331,7 +328,6 @@ int main(int argc, char* argv[])
     }
 
     // Initialize assets into textures
-    int texturesc;
     std::vector<SDL_Texture*> textures;
     generateTexturesInfo texturesi = GenerateTextures(SDLrenderer, imageAssetsc, imageAssetsv);
     if (texturesi.good == false)
@@ -343,7 +339,6 @@ int main(int argc, char* argv[])
     else
     {
         textures = texturesi.textures;
-        texturesc = imageAssetsc;
     }
     
     std::cout << "Debug: main recieved textures: " << textures.size() << std::endl;
@@ -367,10 +362,8 @@ int main(int argc, char* argv[])
     
     // Prime delta time a little and measure startup time
     SDL_ticks = SDL_GetTicks64();
-    dt = (SDL_ticks - SDL_ticks_old) * dt_scale;
+    dt = (SDL_ticks - SDL_ticks_old);
     std::cout << "Debug: startup delta measures " << dt << std::endl;
-
-    
 
     bool skipEarlyPhysics = true;
 
@@ -379,7 +372,7 @@ int main(int argc, char* argv[])
     {
         // Process delta time
         SDL_ticks = SDL_GetTicks64();
-        dt = (SDL_ticks - SDL_ticks_old) * dt_scale;
+        dt = (SDL_ticks - SDL_ticks_old);
         SDL_ticks_old = SDL_ticks;
         
         // Handle keyboard input
@@ -399,7 +392,7 @@ int main(int argc, char* argv[])
         
         // Update chunk world
         chunk_engine.UpdateWorld(player.GetPosition());
-        int count = chunk_engine.UpdateChunks();
+        chunk_engine.UpdateChunks(dt);
         
         // Update Player
         if (skipEarlyPhysics)

@@ -61,7 +61,7 @@ void Player::UpdateCollisionX(float depth)
     bool opposite = (depth > 0 && velocity.x < 0) || (depth < 0 && velocity.x > 0);
     if (depth != 0 && opposite)
     {
-        position += depth;
+        position.x += depth;
         // std::cout << "position x = " << position.x << std::endl;
         velocity.x = 0.0f;
     }
@@ -176,19 +176,15 @@ void Player::UpdateInputY(float dt, const uint8_t* keystates)
     // Vertical movement
     if (crouch == 0)
     {
-        if (keystates[SDL_SCANCODE_SPACE] && falling < 4)
+        if (keystates[SDL_SCANCODE_SPACE] && falling <= 3)
         {
-            velocity.y = -jumpForce;
+            velocity.y -= jumpForce;
+            falling = 4;
         }
     }
     velocity.y += gravity * dt;
     falling += 1;
-    // float down = float(keystates[SDL_SCANCODE_S]);
-    // float up  = float(keystates[SDL_SCANCODE_W]);
-    // float move_y = down - up;
-    // velocity.y += move_y * moveSpeed;
-    // velocity.y *= 0.8f;
-
+    
     position.y += velocity.y * dt;
 }
 
@@ -200,9 +196,9 @@ void Player::UpdateInputX(float dt, const uint8_t* keystates)
     float move_x = right - left;
     if (crouch == 0)
     {
-        velocity.x += move_x * moveSpeed;
+        velocity.x += move_x * moveSpeed * dt;
     }
-    velocity.x *= 0.8f;
+    velocity.x *= std::pow(1.0f - moveFriction, dt);
 
     position.x += velocity.x * dt;
 
@@ -274,12 +270,18 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
         // Build
         if (keystates[SDL_SCANCODE_LEFT] && tool == 0)
         {
-            mining = 1.0f;
+            if (!buildTrig)
+            {
+                mining = 1.0f;
+                buildTrig = true;
+            }
+            else mining = 0.0f;
         }
 
         if (!keystates[SDL_SCANCODE_LEFT])
         {
             mining = 0.0f;
+            buildTrig = false;
         }
     }
 
@@ -329,7 +331,7 @@ void Player::UpdateInput(float dt, const uint8_t* keystates)
 
 }
 
-std::list<std::pair<BlockID, int>>& Player::GetInventory()
+std::list<std::pair<BlockID, unsigned int>>& Player::GetInventory()
 {
     return inventory;
 }

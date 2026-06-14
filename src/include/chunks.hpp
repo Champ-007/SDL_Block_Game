@@ -11,6 +11,7 @@
 #include <iterator>
 #include <FastNoiseLite.h>
 #include <string>
+#include <list>
 
 #include "figures.hpp"
 #include "vector2.hpp"
@@ -55,6 +56,9 @@ struct ChunkSave
 struct Chunk
 {
     private:
+    double deltaTimeTotal;
+    double deltaTimeLimit;
+
     std::vector<BlockID> blocks;
     ChunkCoord pos;
     
@@ -62,8 +66,12 @@ struct Chunk
     std::vector<int> block_lights;
     
     // Light Propagation Queue
-    std::queue<int> LUQ;
-    std::vector<bool> in_queue;
+    std::queue<int> LightUpdateQueue;
+    std::vector<bool> inLightQueue;
+
+    // Block Update Queue
+    std::list<int> BlockUpdateQueue;
+    std::list<int> BlockUpdateIgnore;
     
     ChunkEngine* master;
     
@@ -92,21 +100,26 @@ struct Chunk
 
     int TryGetBlockLight(int index, vector2 offset);
 
-    void AddBlockToQueue(int x, int y);
+    void AddToLightQueue(int x, int y);
+    void AddToBlockQueue(int x, int y);
+    void AddToBlockIgnore(int x, int y);
 
     int GetBlock(int i);
     int GetBlock(int x, int y);
-    int SetBlock(int x, int y, BlockID block);
+    void SetBlock(int x, int y, BlockID block);
 
-    void UpdateEdgeQueue();
+    int  SafeGetBlock(vector2 pos_block);
+    void SafeSetBlock(vector2 pos_block, BlockID block);
 
     void Generate(ChunkCoord c, int seed);
 
     void GenerateSave(ChunkSave* save);
 
+    void UpdateBlocks();
+
     void UpdateLight();
     
-    bool Update();
+    bool Update(float dt);
 };
 
 struct ChunkEngine
@@ -149,13 +162,19 @@ struct ChunkEngine
 
     void AddChunkSave(ChunkSave save);
 
-    int UpdateChunks();
+    void AddBlockToChunkSave(vector2 chunk_pos_block, vector2 pos_in_chunk, BlockID block);
+
+    int UpdateChunks(float dt);
 
     void UpdateWorld(vector2 pos);
 
     vector2 CollidePoint(vector2 pos);
 
     // vector2 GetCollision(vector2 pos);
+
+    BlockID GetBlock(vector2 pos_block);
+
+    void SetBlock(vector2 pos_block, BlockID block);
     
     std::pair<bool, BlockID> MineBlock(vector2 pos, float mining);
     

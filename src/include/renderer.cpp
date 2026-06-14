@@ -17,7 +17,8 @@ void GameRenderer::UpdateCamera(vector2 position, float dt)
     // Camera tracks position
     vector2 target = {position.x - (camera.displayWidth / 2 / camera.zoomMult), position.y - (camera.displayHeight / 2 / camera.zoomMult)};
     vector2 diff = target - camera.position;
-    camera.position += diff * 0.2f * dt;
+    // camera.position += diff * 0.2f * dt;
+    camera.position += diff;
 
 }
 
@@ -238,9 +239,9 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
             // */
     
             // Solid Light
-            float block_light = std::max({(int)floor(chunk->GetSkyLight(i) * sky_light), (int)floor(chunk->GetBlockLight(i))});
-            Uint8 block_light_int = floor(block_light);
-            SDL_Color block_light_color = {block_light_int, block_light_int, block_light_int, 255};
+            // float block_light = std::max({(int)floor(chunk->GetSkyLight(i) * sky_light), (int)floor(chunk->GetBlockLight(i))});
+            // Uint8 block_light_int = floor(block_light);
+            // SDL_Color block_light_color = {block_light_int, block_light_int, block_light_int, 255};
             
             // Atlas width = 32, make sure to update these figures if the atlas ever changes
             // block UVs
@@ -382,7 +383,7 @@ void GameRenderer::RenderDebug(std::vector<SDL_Texture*>* textures, float dt)
 
     if (FPSRefreshCountdown == 0)
     {
-        int fps = 1000 / (dt / 0.02f);
+        int fps = 1000 / dt;
         FPS = fps;
         FPSRefreshCountdown = 4;
     }
@@ -456,12 +457,6 @@ void GameRenderer::RenderDebug(std::vector<SDL_Texture*>* textures, float dt)
         int atlas_x = textureIndex % 16;
         int atlas_y = floor(textureIndex / 16);
 
-        // texture height = 16, make sure to update these figures if the atlas ever changes
-        // 1 / 16 = 0.0625
-        // Texture atlas width = 16, make sure to update these figures if the atlas ever changes
-        // 1 / 16 = 0.0625
-        float tran_x = 0.0625f;
-        float tran_y = 0.0625f;
         float texture_x = atlas_x * letterSize;
         float texture_y = atlas_y * letterSize;
 
@@ -602,12 +597,6 @@ void GameRenderer::RenderInventory(std::vector<SDL_Texture*>* textures, Player& 
             int atlas_x = textureIndex % 16;
             int atlas_y = floor(textureIndex / 16);
 
-            // texture height = 16, make sure to update these figures if the atlas ever changes
-            // 1 / 16 = 0.0625
-            // Texture atlas width = 16, make sure to update these figures if the atlas ever changes
-            // 1 / 16 = 0.0625
-            float tran_x = 0.0625f;
-            float tran_y = 0.0625f;
             float texture_x = atlas_x * 16;
             float texture_y = atlas_y * 16;
 

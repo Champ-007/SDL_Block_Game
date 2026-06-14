@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <SDL.h>
 #include <cstdint>
+#include <cmath>
 
 #include "figures.hpp"
 #include "vector2.hpp"
@@ -34,14 +35,15 @@ struct Player
     vector2 velocity;
     Collider playerCollider;
 
-    float gravity = 2.0f;
-    float jumpForce = 15.8f;
-    float moveSpeed = 2.0f;
+    double gravity = 0.001f;
+    double jumpForce = 0.38f;
+    double moveSpeed = 0.05f;
+    double moveFriction = 0.15f;
 
-    int inventorySlotsMax = 40;
-    int inventoryStackMax = 20;
-    std::list<std::pair<BlockID, int>> inventory;
-    int select = 0;
+    unsigned int inventorySlotsMax = 40;
+    unsigned int inventoryStackMax = 20;
+    std::list<std::pair<BlockID, unsigned int>> inventory;
+    unsigned int select = 0;
     bool selectChangeTrig = false;
     vector2 cursor_position;
 
@@ -51,8 +53,9 @@ struct Player
     int falling = 0;
     int crouch = 0;
     bool curTrig_d = false, curTrig_a = false, curTrig_s = false, curTrig_w = false;
+    bool buildTrig = false;
     float mining = 0.0f;
-    float mineSpeed = 1.0f;
+    float mineSpeed = 0.02f;
 
     public:
     Player(vector2 _pos, float _w, float _h);
@@ -87,7 +90,7 @@ struct Player
     void UpdateInputX(float dt, const uint8_t* keystates);
     void UpdateInput(float dt, const uint8_t* keystates);
 
-    std::list<std::pair<BlockID, int>>& GetInventory();
+    std::list<std::pair<BlockID, unsigned int>>& GetInventory();
     int GetInventorySelect();
     void ResetInventorySelect();
 
