@@ -7,10 +7,6 @@ namespace Physics
     {
         vector2 collide;
         Collider& collider = player.GetCollider();
-        // std::cout << "Debug: collider length = " << collider->size() << std::endl;
-
-        // Determine how many sub-steps to do based on dt
-        // int steps; // 
 
         // Player platforming
         player.UpdateInputY(dt, keystates);
@@ -36,22 +32,6 @@ namespace Physics
             collide = engine.CollidePoint(player.GetPosition() + collider.left.at(i));
             if (collide.x > 0) player.UpdateCollisionX(collide.x);
         }
-
-        // // Sub-step constants
-        // const float maxStepDt = 1.0f / 30.0f;
-        // // const int   maxSteps  = 128;
-
-        // int steps = static_cast<int>(std::ceil(dt / maxStepDt));
-        // std::cout << "Debug: desire steps = " << steps << std::endl;
-        // steps = std::max(1, steps);
-
-        // float subDt = dt / static_cast<float>(steps);
-
-        // // --- Movement + collision, repeated per sub-step ---
-        // for (int step = 0; step < steps; step++)
-        // {
-        //     // Player platforming - X axis
-        // }
     
         // Player controls
         player.UpdateInput(dt, keystates);

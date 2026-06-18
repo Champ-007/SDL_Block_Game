@@ -59,10 +59,10 @@ generateTexturesInfo GenerateTextures(SDL_Renderer* renderer, const int assetsc,
 {
     std::vector<SDL_Texture*> textures;
     bool genGood = true;
-    std::cout << "Debug: Generating " << assetsc << " textures." << std::endl;
+    // std::cout << "Debug: Generating " << assetsc << " textures." << std::endl;
     for (int i = 0; i < assetsc && genGood; ++i)
     {
-        std::cout << "Debug: Attempting to load image: " << assetsv[i] << std::endl;
+        // std::cout << "Debug: Attempting to load image: " << assetsv[i] << std::endl;
         SDL_Surface* surface = IMG_Load(assetsv[i]);
         //std::cout << "Debug: IMG_Load returned, error: " << IMG_GetError() << std::endl;
         //std::cout << "Debug: surface->w before null check: " << (surface ? surface->w : -1) << std::endl;
@@ -81,7 +81,7 @@ generateTexturesInfo GenerateTextures(SDL_Renderer* renderer, const int assetsc,
             //std::cout << "Debug: Surface pitch: " << surface->pitch << std::endl;
             
             SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-            std::cout << "Debug: successfully created texture: " << assetsv[i] << " Attempted SDL get error: " << SDL_GetError() << std::endl;
+            // std::cout << "Debug: successfully created texture: " << assetsv[i] << " Attempted SDL get error: " << SDL_GetError() << std::endl;
             SDL_FreeSurface(surface);
             //std::cout << "Debug: successfully freed surface." << std::endl;
             if (texture == nullptr)
@@ -93,13 +93,13 @@ generateTexturesInfo GenerateTextures(SDL_Renderer* renderer, const int assetsc,
             {
                 textures.push_back(texture);
             }
-            std::cout << "Debug: process completed for: " << assetsv[i] << std::endl;
+            // std::cout << "Debug: process completed for: " << assetsv[i] << std::endl;
         }
     }
 
     if (genGood)
     {
-        std::cout << "Debug: generation was good. Returning vector of " << textures.size() << " textures." << std::endl;
+        // std::cout << "Debug: generation was good. Returning vector of " << textures.size() << " textures." << std::endl;
         return {true, textures};
     }
     else
@@ -135,7 +135,7 @@ int LoadSave(std::string str, ChunkEngine& engine, Player& player)
     // Get for opening issues
     if (!file.is_open())
     {
-        std::cerr << "Error: failed to open file: " << str << std::endl;
+        std::cerr << "Debug: No save found." << std::endl;
         return 1;
     }
     
@@ -341,7 +341,7 @@ int main(int argc, char* argv[])
         textures = texturesi.textures;
     }
     
-    std::cout << "Debug: main recieved textures: " << textures.size() << std::endl;
+    // std::cout << "Debug: main recieved textures: " << textures.size() << std::endl;
     
     // Create Game Renderer
     GameRenderer gameRenderer(SDLrenderer);
@@ -357,7 +357,7 @@ int main(int argc, char* argv[])
 
     // Read from file
     LoadSave("save1.txt", chunk_engine, player);
-    std::cout << "Debug: player position = " << player.GetPosition().x << " " << player.GetPosition().y << std::endl;
+    // std::cout << "Debug: player position = " << player.GetPosition().x << " " << player.GetPosition().y << std::endl;
     camera->position = player.GetPosition();
     
     // Prime delta time a little and measure startup time
@@ -410,7 +410,7 @@ int main(int argc, char* argv[])
         gameRenderer.SetSkyLight(day_light);
         // std::cout << day_light << std::endl;
         
-        gameRenderer.UpdateCamera(player.GetPosition(), dt);
+        gameRenderer.UpdateCamera(player, dt);
 
         // std::cout << "Debug: camera position = (" << camera.position.x << ", " << camera.position.y << ")" << std::endl;
         // if (keystates[SDL_SCANCODE_UP])  {camera.zoomMult += 0.01f * dt;}

@@ -24,6 +24,13 @@ const int foo = 67;
 
 struct ChunkEngine; // Forward declaration
 
+enum class UpdateType
+{
+    instant,
+    defered,
+    softDefered
+};
+
 struct ChunkCoord
 {
     int x;
@@ -59,8 +66,9 @@ struct Chunk
     double deltaTimeTotal;
     double deltaTimeLimit;
 
-    std::vector<BlockID> blocks;
     ChunkCoord pos;
+    std::vector<BlockID> blocks;
+    std::vector<uint8_t> blockData;
     
     std::vector<int> sky_lights;
     std::vector<int> block_lights;
@@ -71,7 +79,7 @@ struct Chunk
 
     // Block Update Queue
     std::list<int> BlockUpdateQueue;
-    std::list<int> BlockUpdateIgnore;
+    std::list<int> BlockUpdateDefer;
     
     ChunkEngine* master;
     
@@ -101,15 +109,23 @@ struct Chunk
     int TryGetBlockLight(int index, vector2 offset);
 
     void AddToLightQueue(int x, int y);
-    void AddToBlockQueue(int x, int y);
-    void AddToBlockIgnore(int x, int y);
 
-    int GetBlock(int i);
-    int GetBlock(int x, int y);
-    void SetBlock(int x, int y, BlockID block);
+    void QueueBlockUpdate(int x, int y);
+    void DeferBlockUpdate(int x, int y);
+    void SoftDeferBlockUpdate(int x, int y);
 
-    int  SafeGetBlock(vector2 pos_block);
-    void SafeSetBlock(vector2 pos_block, BlockID block);
+    BlockID GetBlock(int i);
+    BlockID GetBlock(int x, int y);
+    void    SetBlock(int x, int y, BlockID block);
+
+    BlockData GetBlockData(int i);
+    BlockData GetBlockData(int x, int y);
+    void    SetBlockData(int x, int y, BlockData data);
+
+    BlockID SafeGetBlock(vector2 pos_block);
+    void    SafeSetBlock(vector2 pos_block, BlockID block, BlockData data, UpdateType updateType);
+
+    BlockData SafeGetBlockData(vector2 pos_block);
 
     void Generate(ChunkCoord c, int seed);
 
@@ -173,14 +189,15 @@ struct ChunkEngine
     // vector2 GetCollision(vector2 pos);
 
     BlockID GetBlock(vector2 pos_block);
+    void    SetBlock(vector2 pos_block, BlockID block, BlockData data, UpdateType updateType);
 
-    void SetBlock(vector2 pos_block, BlockID block);
+    BlockData GetBlockData(vector2 pos_block);
+    
+    std::pair<int, int> GetLight(vector2 block_pos);
     
     std::pair<bool, BlockID> MineBlock(vector2 pos, float mining);
     
     bool BuildBlock(vector2 pos_block, BlockID block);
-
-    std::pair<int, int> GetLight(vector2 block_pos);
 
     int GetSkyLight(vector2 block_pos);
 

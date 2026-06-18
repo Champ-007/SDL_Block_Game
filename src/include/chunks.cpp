@@ -4,6 +4,7 @@
 Chunk::Chunk(ChunkCoord c, int seed, ChunkEngine* _master)
 {
     blocks.resize(CHUNK_LENGTH);
+    blockData.resize(CHUNK_LENGTH);
     sky_lights.resize(CHUNK_LENGTH);
     block_lights.resize(CHUNK_LENGTH);
     inLightQueue.resize(CHUNK_LENGTH);
@@ -139,30 +140,69 @@ void Chunk::AddToLightQueue(int x, int y)
     // else std::cout << "Error: bad queue attempt." << std::endl;
 }
 
-void Chunk::AddToBlockQueue(int x, int y)
+void Chunk::QueueBlockUpdate(int x, int y)
 {
     if (x >= 0 && x < CHUNK_WIDTH && y >= 0 && y < CHUNK_WIDTH)
     {
-        BlockUpdateQueue.push_back(x + (y * CHUNK_WIDTH));
+        // std::cout << "Debug: instant queue" << std::endl;
+        int index = x + (y * CHUNK_WIDTH);
+        bool already = false;
+        for (int i : BlockUpdateQueue)
+        {
+            if (i == index) already = true;
+        }
+        if (!already)
+        {
+            BlockUpdateQueue.push_back(x + (y * CHUNK_WIDTH));
+        }
     }
-    // else std::cout << "Error: bad queue attempt." << std::endl;
+    // else std::cout << "Error: bad instant queue attempt." << std::endl;
 }
 
-void Chunk::AddToBlockIgnore(int x, int y)
+void Chunk::DeferBlockUpdate(int x, int y)
 {
     if (x >= 0 && x < CHUNK_WIDTH && y >= 0 && y < CHUNK_WIDTH)
     {
-        BlockUpdateIgnore.push_back(x + (y * CHUNK_WIDTH));
+        // std::cout << "Debug: defered queue" << std::endl;
+        int index = x + (y * CHUNK_WIDTH);
+        bool already = false;
+        for (int i : BlockUpdateDefer)
+        {
+            if (i == index) already = true;
+        }
+        if (!already)
+        {
+            BlockUpdateDefer.push_back(x + (y * CHUNK_WIDTH));
+        }
     }
-    // else std::cout << "Error: bad queue attempt." << std::endl;
+    // else std::cout << "Error: bad defered queue attempt." << std::endl;
 }
 
-int Chunk::GetBlock(int x, int y)
+void Chunk::SoftDeferBlockUpdate(int x, int y)
+{
+    if (x >= 0 && x < CHUNK_WIDTH && y >= 0 && y < CHUNK_WIDTH)
+    {
+        // std::cout << "Debug: soft defered queue" << std::endl;
+        int index = x + (y * CHUNK_WIDTH);
+        bool already = false;
+        for (int i : BlockUpdateQueue)
+        {
+            if (i == index) already = true;
+        }
+        if (!already)
+        {
+            BlockUpdateDefer.push_back(x + (y * CHUNK_WIDTH));
+        }
+    }
+    // else std::cout << "Error: bad soft queue attempt. x = " << x << ", y = " << y << std::endl;
+}
+
+BlockID Chunk::GetBlock(int x, int y)
 {
     return blocks[x + (y * CHUNK_WIDTH)];
 }
 
-int Chunk::GetBlock(int i)
+BlockID Chunk::GetBlock(int i)
 {
     return blocks[i];
 }
@@ -172,7 +212,22 @@ void Chunk::SetBlock(int x, int y, BlockID block)
     blocks[x + (y * CHUNK_WIDTH)] = block;
 }
 
-int Chunk::SafeGetBlock(vector2 pos_block)
+BlockData Chunk::GetBlockData(int i)
+{
+    return blockData[i];
+}
+
+BlockData Chunk::GetBlockData(int x, int y)
+{
+    return blockData[x + (y * CHUNK_WIDTH)];
+}
+
+void Chunk::SetBlockData(int x, int y, BlockData data)
+{
+    blockData[x + (y * CHUNK_WIDTH)] = data;
+}
+
+BlockID Chunk::SafeGetBlock(vector2 pos_block)
 {
     if (pos_block.x >= 0 && pos_block.x < CHUNK_WIDTH && pos_block.y >= 0 && pos_block.y < CHUNK_WIDTH)
     {
@@ -189,19 +244,32 @@ int Chunk::SafeGetBlock(vector2 pos_block)
     }
 }
 
-void Chunk::SafeSetBlock(vector2 pos_block, BlockID block)
+void Chunk::SafeSetBlock(vector2 pos_block, BlockID block, BlockData data, UpdateType updateType)
 {
     if (pos_block.x >= 0 && pos_block.x < CHUNK_WIDTH && pos_block.y >= 0 && pos_block.y < CHUNK_WIDTH)
     {
         blocks[pos_block.x + (pos_block.y * CHUNK_WIDTH)] = block;
+        blockData[pos_block.x + (pos_block.y * CHUNK_WIDTH)] = data;
         AddToLightQueue(pos_block.x, pos_block.y);
 
         // Queue the block update and the four adjacent blocks
-        AddToBlockQueue(pos_block.x, pos_block.y);
-        AddToBlockQueue(pos_block.x + 1, pos_block.y); // right
-        AddToBlockQueue(pos_block.x - 1, pos_block.y); // left
-        AddToBlockQueue(pos_block.x, pos_block.y + 1); // down
-        AddToBlockQueue(pos_block.x, pos_block.y - 1); // up
+        switch (updateType)
+        {
+            case UpdateType::instant:
+                QueueBlockUpdate(pos_block.x, pos_block.y);
+                break;
+            case UpdateType::defered:
+                DeferBlockUpdate(pos_block.x, pos_block.y);
+                break;
+            case UpdateType::softDefered:
+                SoftDeferBlockUpdate(pos_block.x, pos_block.y);
+                break;
+        }
+
+        SoftDeferBlockUpdate(pos_block.x + 1, pos_block.y); // right
+        SoftDeferBlockUpdate(pos_block.x - 1, pos_block.y); // left
+        SoftDeferBlockUpdate(pos_block.x, pos_block.y + 1); // down
+        SoftDeferBlockUpdate(pos_block.x, pos_block.y - 1); // up
 
         vector2 chunk_pos_block = {
             pos.x * CHUNK_WIDTH,
@@ -216,12 +284,32 @@ void Chunk::SafeSetBlock(vector2 pos_block, BlockID block)
             pos_block.y + (pos.y * CHUNK_WIDTH)
         };
 
-        master->SetBlock(world_block_pos, block);
+        master->SetBlock(world_block_pos, block, data, updateType);
+    }
+}
+
+BlockData Chunk:: SafeGetBlockData(vector2 pos_block)
+{
+    if (pos_block.x >= 0 && pos_block.x < CHUNK_WIDTH && pos_block.y >= 0 && pos_block.y < CHUNK_WIDTH)
+    {
+        return blockData[pos_block.x + (pos_block.y * CHUNK_WIDTH)];
+    }
+    else
+    {
+        vector2 world_block_pos = {
+            pos_block.x + (pos.x * CHUNK_WIDTH),
+            pos_block.y + (pos.y * CHUNK_WIDTH)
+        };
+
+        return master->GetBlockData(world_block_pos);
     }
 }
 
 void Chunk::Generate(ChunkCoord c, int seed)
 {
+    // Basic random object for block data
+    srand((unsigned int)seed);
+
     // noise object for general terrain density
     FastNoiseLite terrain_noise;
     terrain_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -285,7 +373,7 @@ void Chunk::Generate(ChunkCoord c, int seed)
             }
             else if (density < 0.4 && biome == 0)
             {
-                if (terrain_noise.GetNoise((float)index_x, (float)index_y - 1) < 0.0f)
+                if (terrain_noise.GetNoise((float)index_x, ((float)index_y - 1)) < 0.0f)
                 {
                     blocks[i] = BlockRegistry::getIDByName("grass");
                 }
@@ -309,6 +397,7 @@ void Chunk::Generate(ChunkCoord c, int seed)
                     blocks[i] = BlockRegistry::getIDByName("stone");
                 }
             }
+            blockData[i] = 4;
             inLightQueue[i] = true;
             LightUpdateQueue.push(i);
         }
@@ -333,16 +422,17 @@ void Chunk::GenerateSave(ChunkSave* save)
 
 void Chunk::UpdateBlocks()
 {
-    // std::cout << "Debug: block update queue = " << BlockUpdateQueue.size() << std::endl;
-    int budget = 200;
-    while (!BlockUpdateQueue.empty() && budget > 0)
+    // int budget = 200;
+    while (!BlockUpdateQueue.empty())
     {
         // Get the update location
         int index = BlockUpdateQueue.front();
+        BlockUpdateQueue.pop_front();
+        // budget--;
         
         // Check if the block update should be ignored
         bool ignore = false;
-        for (int i : BlockUpdateIgnore)
+        for (int i : BlockUpdateDefer)
         {
             if (index == i) ignore = true;
         }
@@ -350,11 +440,13 @@ void Chunk::UpdateBlocks()
         if (!ignore)
         {
             BlockID block = blocks[index];
+            BlockData data = blockData[index];
             BlockDef def = BlockRegistry::get(block);
     
             // Create the context and run the OnUpdate() function
             BehaviorContext ctx;
             ctx.block = block;
+            ctx.data = data;
             ctx.chunk = this;
             ctx.x = floor(index % CHUNK_WIDTH);
             ctx.y = floor(index / CHUNK_WIDTH);
@@ -362,13 +454,9 @@ void Chunk::UpdateBlocks()
             def.OnUpdate(ctx);
 
         }
-        
-        // Iterate
-        BlockUpdateQueue.pop_front();
-        budget--;
     }
-    BlockUpdateQueue.splice(BlockUpdateQueue.end(), BlockUpdateIgnore);
-    BlockUpdateIgnore.clear();
+    BlockUpdateQueue.splice(BlockUpdateQueue.end(), BlockUpdateDefer);
+    BlockUpdateDefer.clear();
 }
 
 void Chunk::UpdateLight()
@@ -779,7 +867,7 @@ BlockID ChunkEngine::GetBlock(vector2 pos_block)
     return 0;
 }
 
-void ChunkEngine::SetBlock(vector2 pos_block, BlockID block)
+void ChunkEngine::SetBlock(vector2 pos_block, BlockID block, BlockData data, UpdateType updateType)
 {
     ChunkCoord pos_chunk = {
         static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
@@ -800,39 +888,49 @@ void ChunkEngine::SetBlock(vector2 pos_block, BlockID block)
         it->second->AddToLightQueue(pos_in_chunk.x, pos_in_chunk.y);
 
         // Queue the block update and the four adjacent blocks
-        it->second->AddToBlockQueue(pos_in_chunk.x, pos_in_chunk.y);
-        it->second->AddToBlockQueue(pos_in_chunk.x + 1, pos_in_chunk.y); // right
-        it->second->AddToBlockQueue(pos_in_chunk.x - 1, pos_in_chunk.y); // left
-        it->second->AddToBlockQueue(pos_in_chunk.x, pos_in_chunk.y + 1); // down
-        it->second->AddToBlockQueue(pos_in_chunk.x, pos_in_chunk.y - 1); // up
+        switch (updateType)
+        {
+            case UpdateType::instant:
+                it->second->QueueBlockUpdate(pos_in_chunk.x, pos_in_chunk.y);
+                break;
+            case UpdateType::defered:
+                it->second->DeferBlockUpdate(pos_in_chunk.x, pos_in_chunk.y);
+                break;
+            case UpdateType::softDefered:
+                it->second->SoftDeferBlockUpdate(pos_in_chunk.x, pos_in_chunk.y);
+                break;
+        }
+        it->second->SoftDeferBlockUpdate(pos_in_chunk.x + 1, pos_in_chunk.y); // right
+        it->second->SoftDeferBlockUpdate(pos_in_chunk.x - 1, pos_in_chunk.y); // left
+        it->second->SoftDeferBlockUpdate(pos_in_chunk.x, pos_in_chunk.y + 1); // down
+        it->second->SoftDeferBlockUpdate(pos_in_chunk.x, pos_in_chunk.y - 1); // up
         
         AddBlockToChunkSave(chunk_blockPos, pos_in_chunk, block);
     }
 
 }
 
-std::pair<bool, BlockID> ChunkEngine::MineBlock(vector2 pos_block, float mining)
+BlockData ChunkEngine::GetBlockData(vector2 pos_block)
 {
-    BlockID block = GetBlock(pos_block);
-    BlockDef def = BlockRegistry::get(block);
-    if (mining >= def.mineStrength && def.mineable)
-    {
-        SetBlock(pos_block, BlockRegistry::getIDByName("air"));
-        return {true, block};
-    }
-    return {false, 0};
-}
+    ChunkCoord pos_chunk = {
+        static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)), 
+        static_cast<int>(floor(pos_block.y / CHUNK_WIDTH))
+    };
 
-bool ChunkEngine::BuildBlock(vector2 pos_block, BlockID block)
-{
-    BlockID block_old = GetBlock(pos_block);
-    BlockDef def = BlockRegistry::get(block_old);
-    if (def.placeOver)
+    auto it  = chunks.find(pos_chunk);
+
+    if (it != chunks.end())
     {
-        SetBlock(pos_block, block);
-        return true;
+        vector2 chunk_blockPos = {
+            pos_chunk.x * CHUNK_WIDTH,
+            pos_chunk.y * CHUNK_WIDTH
+        };
+
+        vector2 pos_in_chunk = pos_block - chunk_blockPos;
+        BlockID block = it->second->GetBlockData(pos_in_chunk.x, pos_in_chunk.y);
+        return block;
     }
-    return false;
+    return 0;
 }
 
 std::pair<int, int> ChunkEngine::GetLight(vector2 block_pos)
@@ -858,6 +956,30 @@ std::pair<int, int> ChunkEngine::GetLight(vector2 block_pos)
     {
         return {0, 0};
     }
+}
+
+std::pair<bool, BlockID> ChunkEngine::MineBlock(vector2 pos_block, float mining)
+{
+    BlockID block = GetBlock(pos_block);
+    BlockDef def = BlockRegistry::get(block);
+    if (mining >= def.mineStrength && def.mineable)
+    {
+        SetBlock(pos_block, BlockRegistry::getIDByName("air"), 0, UpdateType::instant);
+        return {true, block};
+    }
+    return {false, 0};
+}
+
+bool ChunkEngine::BuildBlock(vector2 pos_block, BlockID block)
+{
+    BlockID block_old = GetBlock(pos_block);
+    BlockDef def = BlockRegistry::get(block_old);
+    if (def.placeOver)
+    {
+        SetBlock(pos_block, block, 0, UpdateType::instant);
+        return true;
+    }
+    return false;
 }
 
 int ChunkEngine::GetSkyLight(vector2 block_pos)

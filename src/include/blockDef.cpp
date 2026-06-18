@@ -1,8 +1,9 @@
 
 #include "blockDef.hpp"
 
-BlockDef::BlockDef(std::string name, int textureIndex, int skyLight, int blockLight, bool mineable, int mineStrength, bool placeOver, bool isSolid, bool isTransparent, int density, std::vector<std::shared_ptr<BlockBehavior>> behaviors) :
-    name(std::move(name)), textureIndex(textureIndex),
+BlockDef::BlockDef(std::string name, int textureIndex, int skyLight, int blockLight, bool mineable, int mineStrength, bool placeOver, bool isSolid, bool isTransparent, int density, bool isLiquid, std::vector<std::shared_ptr<BlockBehavior>> behaviors) :
+    name(std::move(name)),
+    textureIndex(textureIndex),
     skyLight(skyLight),
     blockLight(blockLight),
     mineable(mineable),
@@ -11,6 +12,7 @@ BlockDef::BlockDef(std::string name, int textureIndex, int skyLight, int blockLi
     isSolid(isSolid),
     isTransparent(isTransparent),
     density(density),
+    isLiquid(isLiquid),
     behaviors(behaviors)
     {}
 
@@ -39,6 +41,6 @@ void BlockDef::OnUpdate(BehaviorContext ctx) const
     for (size_t i = 0; i < behaviors.size(); i++)
     {
         auto b = behaviors.at(i);
-        b->OnUpdate(ctx);
+        ctx = b->OnUpdate(ctx);
     }
 }

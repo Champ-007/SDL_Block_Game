@@ -37,8 +37,8 @@ struct Player
 
     double gravity = 0.001f;
     double jumpForce = 0.38f;
-    double moveSpeed = 0.05f;
-    double moveFriction = 0.15f;
+    double moveSpeed = 0.005f;
+    double moveFriction = 0.03f;
 
     unsigned int inventorySlotsMax = 40;
     unsigned int inventoryStackMax = 20;

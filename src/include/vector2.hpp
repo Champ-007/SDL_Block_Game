@@ -39,6 +39,10 @@ struct vector2
     {
         return vector2(x * other, y * other);
     }
+    vector2 operator/(const float& other) const
+    {
+        return vector2(x / other, y / other);
+    }
 
     vector2& operator+=(const vector2& other)
     {

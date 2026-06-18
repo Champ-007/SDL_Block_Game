@@ -12,13 +12,21 @@ Camera* GameRenderer::GetCamera()
     return &camera;
 }
 
-void GameRenderer::UpdateCamera(vector2 position, float dt)
+void GameRenderer::UpdateCamera(Player& player, float dt)
 {
     // Camera tracks position
-    vector2 target = {position.x - (camera.displayWidth / 2 / camera.zoomMult), position.y - (camera.displayHeight / 2 / camera.zoomMult)};
+    vector2 target;
+    target = player.GetPosition();
+    // if (player.GetCursor())
+    // {
+    //     target += player.GetCursorPosition() * BLOCK_WIDTH;
+    //     target = target / 2;
+    // }
+    target = {target.x - (camera.displayWidth / 2 / camera.zoomMult), target.y - (camera.displayHeight / 2 / camera.zoomMult)};
     vector2 diff = target - camera.position;
-    // camera.position += diff * 0.2f * dt;
-    camera.position += diff;
+    float trackingSpeed = 0.005f;
+    camera.position += diff * (1.0f - expf(-trackingSpeed * dt));
+    // camera.position += diff;
 
 }
 
@@ -157,7 +165,7 @@ void GameRenderer::RenderPlayer(SDL_Texture* texture, Player& player, ChunkEngin
     }
 }
 
-void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk, bool cursorView)
+void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk)
 {
     // Determine if Chunk is visible
     vector2 nearScreenCorner = ScreenToWorld({0, 0});
@@ -287,7 +295,7 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
                 SDL_Vertex v2 = {{x + r, y}, MultBrightness(top_right_color, mult), {static_cast<float>(background_texture_x + tran_x), static_cast<float>(background_texture_y)}};
                 SDL_Vertex v3 = {{x + r, y + r}, MultBrightness(bottom_right_color, mult), {static_cast<float>(background_texture_x + tran_x), static_cast<float>(background_texture_y + tran_y)}};
                 SDL_Vertex v4 = {{x, y + r}, MultBrightness(bottom_left_color, mult), {static_cast<float>(background_texture_x), static_cast<float>(background_texture_y + tran_y)}};
-                
+
                 int baseIndex = vertices.size();
                 vertices.push_back(v1);
                 vertices.push_back(v2);
@@ -317,6 +325,14 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
                 SDL_Vertex v3 = {{x + r, y + r}, bottom_right_color, {static_cast<float>(texture_x + tran_x), static_cast<float>(texture_y + tran_y)}};
                 SDL_Vertex v4 = {{x, y + r}, bottom_left_color, {static_cast<float>(texture_x), static_cast<float>(texture_y + tran_y)}};
                 
+                // Water height level
+                if (def.isLiquid)
+                {
+                    uint8_t data = chunk->GetBlockData(i);
+                    v1.position.y += r - (r * 0.25f * static_cast<int>(data));
+                    v2.position.y += r - (r * 0.25f * static_cast<int>(data));
+                }
+
                 int baseIndex = vertices.size();
                 vertices.push_back(v1);
                 vertices.push_back(v2);
@@ -340,13 +356,6 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
 
 void GameRenderer::RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, float dt)
 {
-    // Debug
-    // std::cout << "Debug: beginning new frame." << std::endl;
-
-    // Vars
-    bool cursorView = player.GetCursor();
-    // bool cursorView = false;
-
     // Clear the renderer
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
@@ -361,7 +370,7 @@ void GameRenderer::RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEn
     // Render Chunks
     for (const auto& [coord, chunkPtr] : engine.GetChunks())
     {
-        RenderChunk(textures, chunkPtr.get(), cursorView);
+        RenderChunk(textures, chunkPtr.get());
     }
 
     // Render player

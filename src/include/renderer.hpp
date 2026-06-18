@@ -53,7 +53,7 @@ struct GameRenderer
     void  SetSkyLight(float v);
 
     Camera* GetCamera();
-    void UpdateCamera(vector2 position, float dt);
+    void UpdateCamera(Player& player, float dt);
 
     SDL_Point GetTextureSize(SDL_Texture* texture);
     
@@ -72,7 +72,7 @@ struct GameRenderer
     
     void RenderPlayer(SDL_Texture* texture, Player& player, ChunkEngine* engine);
     
-    void RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk, bool cursorView);
+    void RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk);
     
     void RenderEverything(std::vector<SDL_Texture*>* textures, ChunkEngine& engine, Player& player, float dt);
 
