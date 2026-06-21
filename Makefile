@@ -4,7 +4,7 @@ SRC_INCLUDE = src/include
 
 CXXFLAGS = -I $(SDL_INCLUDE) -I $(SRC_INCLUDE) -Wall -MMD -MP
 
-OBJECTS = obj/main.o obj/renderer.o obj/chunks.o obj/player.o obj/physics.o obj/collider.o obj/blockRegistry.o obj/blockDef.o obj/blockBehavior.o
+OBJECTS = obj/main.o obj/renderer.o obj/chunks.o obj/player.o obj/physics.o obj/collider.o obj/blockRegistry.o obj/blockDef.o obj/blockBehavior.o obj/blockDataItem.o
 DEPENDENCIES = $(OBJECTS:.o=.d)
 
 all: main
@@ -45,6 +45,9 @@ obj/blockDef.o: src/include/blockDef.cpp
 
 obj/blockBehavior.o: src/include/blockBehavior.cpp
 	g++ $(CXXFLAGS) -c src/include/blockBehavior.cpp -o obj/blockBehavior.o
+
+obj/blockDataItem.o: src/include/blockDataItem.cpp
+	g++ $(CXXFLAGS) -c src/include/blockDataItem.cpp -o obj/blockDataItem.o
 
 objectDir:
 	if not exist obj mkdir obj

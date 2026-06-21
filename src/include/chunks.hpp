@@ -57,7 +57,8 @@ struct ChunkSave
 {
     ChunkCoord coord;
     std::vector<int> positions;
-    std::vector<int> blocks;
+    std::vector<BlockID> blocks;
+    std::vector<BlockData> data;
 };
 
 struct Chunk
@@ -68,7 +69,7 @@ struct Chunk
 
     ChunkCoord pos;
     std::vector<BlockID> blocks;
-    std::vector<uint8_t> blockData;
+    std::vector<BlockData> blockData;
     
     std::vector<int> sky_lights;
     std::vector<int> block_lights;
@@ -97,15 +98,12 @@ struct Chunk
     int GetLightQueLength();
 
     std::pair<int, int> GetLight(int i);
-
     std::pair<int, int> TryGetLight(int i, vector2 offset);
 
     int GetSkyLight(int i);
-
     int TryGetSkyLight(int index, vector2 offset);
 
     int GetBlockLight(int i);
-
     int TryGetBlockLight(int index, vector2 offset);
 
     void AddToLightQueue(int x, int y);
@@ -116,16 +114,19 @@ struct Chunk
 
     BlockID GetBlock(int i);
     BlockID GetBlock(int x, int y);
-    void    SetBlock(int x, int y, BlockID block);
+    void SetBlock(int x, int y, BlockID block);
 
     BlockData GetBlockData(int i);
     BlockData GetBlockData(int x, int y);
-    void    SetBlockData(int x, int y, BlockData data);
+    void SetBlockData(int x, int y, BlockData data);
 
     BlockID SafeGetBlock(vector2 pos_block);
     void    SafeSetBlock(vector2 pos_block, BlockID block, BlockData data, UpdateType updateType);
 
     BlockData SafeGetBlockData(vector2 pos_block);
+
+    BlockData* TakeBlockData(vector2 pos_block);
+    BlockData* SafeTakeBlockData(vector2 pos_block);
 
     void Generate(ChunkCoord c, int seed);
 
@@ -192,6 +193,8 @@ struct ChunkEngine
     void    SetBlock(vector2 pos_block, BlockID block, BlockData data, UpdateType updateType);
 
     BlockData GetBlockData(vector2 pos_block);
+
+    BlockData* TakeBlockData(vector2 worldPos_block);
     
     std::pair<int, int> GetLight(vector2 block_pos);
     

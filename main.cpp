@@ -197,6 +197,8 @@ int LoadSave(std::string str, ChunkEngine& engine, Player& player)
                 file >> item;
                 saveItem.blocks.push_back(std::atoi(item.c_str()));
                 file >> item;
+                saveItem.data.push_back(std::atoi(item.c_str()));
+                file >> item;
             }
             engine.AddChunkSave(saveItem);
         }
@@ -225,11 +227,22 @@ int BakeSave(std::string str, ChunkEngine& engine, Player& player)
     for (auto i : engine.GetChunkSaves())
     {
         writeFile << "chunk " << i.coord.x << " " << i.coord.y << ' ';
+        vector2 chunkPos = {
+            i.coord.x * CHUNK_WIDTH,
+            i.coord.y * CHUNK_WIDTH
+        };
+
         for (size_t j = 0; j < i.blocks.size(); j++)
         {
-            writeFile << i.positions.at(j) << " " << i.blocks.at(j) << ' ';
+            vector2 blockPos = {
+                i.positions.at(j) % CHUNK_WIDTH,
+                floor(i.positions.at(j) / CHUNK_WIDTH)
+            };
+            BlockData data = engine.GetBlockData(blockPos + chunkPos);
+            // std::cout << "Debug: data write to file = " << std::to_string(static_cast<int>(data)) << std::endl;
+            writeFile << i.positions.at(j) << " " << i.blocks.at(j) << ' ' << std::to_string(static_cast<int>(data)) << " ";
         }
-        writeFile << "endchunk" << " ";
+        writeFile << "endchunk ";
     }
     return 0;
 }

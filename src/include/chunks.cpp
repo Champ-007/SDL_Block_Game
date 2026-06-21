@@ -305,6 +305,28 @@ BlockData Chunk:: SafeGetBlockData(vector2 pos_block)
     }
 }
 
+BlockData* Chunk::TakeBlockData(vector2 pos_block)
+{
+    return &blockData[pos_block.x + (pos_block.y * CHUNK_WIDTH)];
+}
+
+BlockData* Chunk::SafeTakeBlockData(vector2 pos_block)
+{
+    if (pos_block.x >= 0 && pos_block.x < CHUNK_WIDTH && pos_block.y >= 0 && pos_block.y < CHUNK_WIDTH)
+    {
+        return &blockData[pos_block.x + (pos_block.y * CHUNK_WIDTH)];
+    }
+    else
+    {
+        vector2 world_block_pos = {
+            pos_block.x + (pos.x * CHUNK_WIDTH),
+            pos_block.y + (pos.y * CHUNK_WIDTH)
+        };
+
+        return master->TakeBlockData(world_block_pos);
+    }
+}
+
 void Chunk::Generate(ChunkCoord c, int seed)
 {
     // Basic random object for block data
@@ -343,6 +365,7 @@ void Chunk::Generate(ChunkCoord c, int seed)
             int i = x + (y * CHUNK_WIDTH);
             sky_lights[i] = 0;
             block_lights[i] = 0;
+            blockData[i] = 0;
             if (density < 0.0f)
             {
                 if (terrain_noise.GetNoise((float)index_x, (float)index_y + 1) > 0.0f)
@@ -362,10 +385,12 @@ void Chunk::Generate(ChunkCoord c, int seed)
                     if (density2 < -limit)
                     {
                         blocks[i] = BlockRegistry::getIDByName("water");
+                        blockData[i] = rand();
                     }
                     else if (density2 > limit)
                     {
                         blocks[i] = BlockRegistry::getIDByName("lava");
+                        blockData[i] = rand();
                     }
                     else
                     blocks[i] = BlockRegistry::getIDByName("air");
@@ -397,7 +422,6 @@ void Chunk::Generate(ChunkCoord c, int seed)
                     blocks[i] = BlockRegistry::getIDByName("stone");
                 }
             }
-            blockData[i] = 4;
             inLightQueue[i] = true;
             LightUpdateQueue.push(i);
         }
@@ -407,21 +431,19 @@ void Chunk::Generate(ChunkCoord c, int seed)
 
 void Chunk::GenerateSave(ChunkSave* save)
 {
-    for (size_t i = 0; i < save->blocks.size(); i++)
+    for (size_t i = 0; i < save->positions.size(); i++)
     {
         // std::cout << "Debug: setting block to " << save->blocks.at(i) << std::endl; 
         blocks.at(save->positions.at(i)) = save->blocks.at(i);
-        if (save->blocks.at(i) == -1)
-        {
-            LightUpdateQueue.push(save->positions.at(i));
-            inLightQueue[save->positions.at(i)] = true;
-        }
+        blockData.at(save->positions.at(i)) = static_cast<int>(save->data.at(i));
+        // std::cout << "Debug: blockData was " << static_cast<int>(save->data.at(i)) << std::endl;
     }
     
 }
 
 void Chunk::UpdateBlocks()
 {
+    srand((unsigned int)time(NULL));
     // int budget = 200;
     while (!BlockUpdateQueue.empty())
     {
@@ -440,7 +462,7 @@ void Chunk::UpdateBlocks()
         if (!ignore)
         {
             BlockID block = blocks[index];
-            BlockData data = blockData[index];
+            BlockData* data = &blockData[index];
             BlockDef def = BlockRegistry::get(block);
     
             // Create the context and run the OnUpdate() function
@@ -619,6 +641,7 @@ ChunkEngine::ChunkEngine()
 
     std::random_device rd;
     world_seed = rd();
+    DataItemRegistry::Init();
     BlockRegistry::Init();
     // Nevermind!
     // world_seed = 1234;
@@ -885,6 +908,7 @@ void ChunkEngine::SetBlock(vector2 pos_block, BlockID block, BlockData data, Upd
         vector2 pos_in_chunk = pos_block - chunk_blockPos;
         
         it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y, block);
+        it->second->SetBlockData(pos_in_chunk.x, pos_in_chunk.y, data);
         it->second->AddToLightQueue(pos_in_chunk.x, pos_in_chunk.y);
 
         // Queue the block update and the four adjacent blocks
@@ -927,10 +951,33 @@ BlockData ChunkEngine::GetBlockData(vector2 pos_block)
         };
 
         vector2 pos_in_chunk = pos_block - chunk_blockPos;
-        BlockID block = it->second->GetBlockData(pos_in_chunk.x, pos_in_chunk.y);
-        return block;
+        BlockData blockData = it->second->GetBlockData(pos_in_chunk.x, pos_in_chunk.y);
+        return blockData;
     }
     return 0;
+}
+
+BlockData* ChunkEngine::TakeBlockData(vector2 worldPos_block)
+{
+    ChunkCoord pos_chunk = {
+        static_cast<int>(floor(worldPos_block.x / CHUNK_WIDTH)), 
+        static_cast<int>(floor(worldPos_block.y / CHUNK_WIDTH))
+    };
+
+    auto it  = chunks.find(pos_chunk);
+
+    if (it != chunks.end())
+    {
+        vector2 chunk_blockPos = {
+            pos_chunk.x * CHUNK_WIDTH,
+            pos_chunk.y * CHUNK_WIDTH
+        };
+
+        vector2 pos_in_chunk = worldPos_block - chunk_blockPos;
+        BlockData* data = it->second->TakeBlockData(pos_in_chunk);
+        return data;
+    }
+    return nullptr;
 }
 
 std::pair<int, int> ChunkEngine::GetLight(vector2 block_pos)
@@ -961,7 +1008,7 @@ std::pair<int, int> ChunkEngine::GetLight(vector2 block_pos)
 std::pair<bool, BlockID> ChunkEngine::MineBlock(vector2 pos_block, float mining)
 {
     BlockID block = GetBlock(pos_block);
-    BlockDef def = BlockRegistry::get(block);
+    const BlockDef def = BlockRegistry::get(block);
     if (mining >= def.mineStrength && def.mineable)
     {
         SetBlock(pos_block, BlockRegistry::getIDByName("air"), 0, UpdateType::instant);

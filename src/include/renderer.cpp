@@ -192,12 +192,16 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
             BlockID block = chunk->GetBlock(i);
             // std::cout << "Debug: Starting chunk render." << std::endl;
             
-            const BlockDef& def = BlockRegistry::get(block);
+            const BlockDef def = BlockRegistry::get(block);
     
             // Get essential data from the object
+            vector2 pos_block = {
+                i % CHUNK_WIDTH,
+                floor(i / CHUNK_WIDTH)
+            };
             vector2 block_position = {
-                (BLOCK_WIDTH * (i % CHUNK_WIDTH)),
-                (BLOCK_WIDTH * floor(i / CHUNK_WIDTH))
+                (BLOCK_WIDTH * pos_block.x),
+                (BLOCK_WIDTH * pos_block.y)
             };
             vector2 block_position_world = WorldToScreen(block_position + chunk_world);
             float x = block_position_world.x;
@@ -328,7 +332,8 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
                 // Water height level
                 if (def.isLiquid)
                 {
-                    uint8_t data = chunk->GetBlockData(i);
+                    BlockData* blockData = chunk->TakeBlockData(pos_block);
+                    BlockData data = def.Read("liquidLevel", blockData) + 1;
                     v1.position.y += r - (r * 0.25f * static_cast<int>(data));
                     v2.position.y += r - (r * 0.25f * static_cast<int>(data));
                 }

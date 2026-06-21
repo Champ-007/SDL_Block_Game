@@ -36,7 +36,7 @@ namespace BlockRegistry
 
         }});
         RegisterBlock({"grass",         320, 0,   0,   true,  15, false, true,  false, 10, false, {
-            std::make_shared<SpreadGrassBehavior>()
+            std::make_shared<SpreadGrassBehavior>(),
         }});
         RegisterBlock({"dirt" ,         136, 0,   0,   true,  15, false, true,  false, 10, false, {
             
@@ -57,16 +57,16 @@ namespace BlockRegistry
             
         }});
         RegisterBlock({"water",         2,   0,   0,   false, 5,  true,  false, true,  3,  true,  {
-            std::make_shared<LiquidFlowBehavior>()
-            // std::make_shared<LiquidCombineBehavior>()
+            std::make_shared<LiquidFlowBehavior>(),
+            std::make_shared<LiquidCombineBehavior>(),
         }});
         RegisterBlock({"lava",          0,   0,   255, false, 5,  true,  false, true,  6,  true,  {
             std::make_shared<LiquidFlowBehavior>(),
-            // std::make_shared<LiquidCombineBehavior>(),
-            std::make_shared<LavaToObsidianBehavior>()
+            std::make_shared<LiquidCombineBehavior>(),
+            std::make_shared<LavaToObsidianBehavior>(),
         }});
         RegisterBlock({"gravel",        324, 0,   0,   true,  5,  false, true,  false, 8,  false, {
-            std::make_shared<FallBehavior>()
+            std::make_shared<FallBehavior>(),
         }});
     }
 }

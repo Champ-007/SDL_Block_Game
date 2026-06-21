@@ -5,7 +5,7 @@
 #include "chunks.hpp"
 #include "blockRegistry.hpp"
 
-BehaviorContext::BehaviorContext(int x, int y, BlockID block, BlockData data, Chunk* chunk) :
+BehaviorContext::BehaviorContext(int x, int y, BlockID block, BlockData* data, Chunk* chunk) :
     x(x),
     y(y),
     block(block),
@@ -13,6 +13,12 @@ BehaviorContext::BehaviorContext(int x, int y, BlockID block, BlockData data, Ch
     chunk(chunk)
     {}
 
+std::vector<DataItemID> FallBehavior::Init()
+{
+    return {
+
+    };
+}
 BehaviorContext FallBehavior::OnUpdate(BehaviorContext ctx)
 {
     UpdateType otherType = UpdateType::defered;
@@ -29,7 +35,8 @@ BehaviorContext FallBehavior::OnUpdate(BehaviorContext ctx)
     if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
     {
         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-        ctx.chunk->SafeSetBlock({ctx.x, ctx.y + 1}, ctx.block, ctx.data, blockType);
+        ctx.chunk->SafeSetBlock({ctx.x, ctx.y + 1}, ctx.block, *ctx.data, blockType);
+        ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x, ctx.y + 1});
         return {ctx.x, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
     }
 
@@ -39,7 +46,8 @@ BehaviorContext FallBehavior::OnUpdate(BehaviorContext ctx)
     if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
     {
         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-        ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, ctx.data, blockType);
+        ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, *ctx.data, blockType);
+        ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y + 1});
         return {ctx.x + dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
     }
 
@@ -49,7 +57,8 @@ BehaviorContext FallBehavior::OnUpdate(BehaviorContext ctx)
     if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
     {
         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-        ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y + 1}, ctx.block, ctx.data, blockType);
+        ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y + 1}, ctx.block, *ctx.data, blockType);
+        ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y + 1});
         return {ctx.x - dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
     }
 
@@ -66,6 +75,12 @@ BehaviorContext FallBehavior::OnBreak(BehaviorContext ctx)
     return ctx;
 }
 
+std::vector<DataItemID> SpreadGrassBehavior::Init()
+{
+    return {
+        
+    };
+}
 BehaviorContext SpreadGrassBehavior::OnUpdate(BehaviorContext ctx)
 {
     // std::cout << "Debug: grass update attempted." << std::endl;
@@ -103,6 +118,12 @@ BehaviorContext SpreadGrassBehavior::OnBreak(BehaviorContext ctx)
     return ctx;
 }
 
+std::vector<DataItemID> LiquidFlowBehavior::Init()
+{
+    return {
+        DataItemRegistry::getIDByName("liquidLevel")
+    };
+}
 BehaviorContext LiquidFlowBehavior::OnUpdate(BehaviorContext ctx)
 {
     UpdateType otherType = UpdateType::defered;
@@ -113,13 +134,16 @@ BehaviorContext LiquidFlowBehavior::OnUpdate(BehaviorContext ctx)
     int dir = (rand() % 2);
     if (dir == 0) dir = -1; // 1 or -1
 
+    BlockData sourceData = *ctx.data;
+
     // Fall downwards
     other = ctx.chunk->SafeGetBlock({ctx.x, ctx.y + 1});
     otherData = ctx.chunk->SafeGetBlockData({ctx.x, ctx.y + 1});
     if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
     {
         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-        ctx.chunk->SafeSetBlock({ctx.x, ctx.y + 1}, ctx.block, ctx.data, blockType);
+        ctx.chunk->SafeSetBlock({ctx.x, ctx.y + 1}, ctx.block, sourceData, blockType);
+        ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x, ctx.y + 1});
         return {ctx.x, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
     }
 
@@ -129,7 +153,8 @@ BehaviorContext LiquidFlowBehavior::OnUpdate(BehaviorContext ctx)
     if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
     {
         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-        ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, ctx.data, blockType);
+        ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, sourceData, blockType);
+        ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y + 1});
         return {ctx.x + dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
     }
 
@@ -139,81 +164,88 @@ BehaviorContext LiquidFlowBehavior::OnUpdate(BehaviorContext ctx)
     if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
     {
         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-        ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y + 1}, ctx.block, ctx.data, blockType);
+        ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y + 1}, ctx.block, sourceData, blockType);
+        ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y + 1});
         return {ctx.x - dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
     }
 
-    // Try moving horizontally toward dir
-    other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y});
-    otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y});
-    if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
-    {
-        ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-        ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y}, ctx.block, ctx.data, blockType);
-        return {ctx.x + dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
-    }
-
-    // Try to move in opposite dir
-    other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y});
-    otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y});
-    if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
-    {
-        ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-        ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y}, ctx.block, ctx.data, blockType);
-        return {ctx.x - dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
-    }
-
     // Determine how to move horizontally
-    // if (ctx.data > 1)
-    // {
-    //     // Fuller water blocks should spread out while flowing
+    BlockDef def = BlockRegistry::get(ctx.block);
+    unsigned int liquidLevel = def.Read("liquidLevel", ctx.data);
+    if (liquidLevel > 0)
+    {
+        // Fuller water blocks should spread out while flowing
 
-    //     int takeWater  = static_cast<int>(ceil(ctx.data / 2.0f));
-    //     int leaveWater = ctx.data - takeWater;
+        // 3 = 1 + 1
+        // 2 = 1 + 0
+        // 1 = 0 + 0
 
-    //     // Try spreading horizontally toward dir
-    //     other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y});
-    //     if (BlockRegistry::get(other).name == "air")
-    //     {
-    //         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, leaveWater, blockType);
-    //         ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y}, ctx.block, takeWater, blockType);
+        // Offset into real math space where 1 == 1 unit of water, rather than 0 == 1 unit
+        liquidLevel++;
 
-    //         return {ctx.x, ctx.y, ctx.block, static_cast<BlockData>(leaveWater), ctx.chunk};
-    //     }
+        // Normal calulation
+        unsigned int takeWater  = static_cast<int>(floor(static_cast<float>(liquidLevel) / 2.0f));
+        unsigned int leaveWater = liquidLevel - takeWater;
 
-    //     // Try to spread in opposite dir
-    //     other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y});
-    //     if (BlockRegistry::get(other).name == "air")
-    //     {
-    //         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, leaveWater, blockType);
-    //         ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y}, ctx.block, takeWater, blockType);
-    //         return {ctx.x, ctx.y, ctx.block, static_cast<BlockData>(leaveWater), ctx.chunk};
-    //     }
-    // }
-    // else if (ctx.data == 1)
-    // {
-    //     // Shallow water blocks should just move
+        // Offset results back into abstract space
+        liquidLevel--;
+        takeWater--;
+        leaveWater--;
 
-    //     // Try moving horizontally toward dir
-    //     other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y});
-    //     otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y});
-    //     if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
-    //     {
-    //         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-    //         ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y}, ctx.block, ctx.data, blockType);
-    //         return {ctx.x + dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
-    //     }
+        // std::cout << "Debug: original = " << liquidLevel << " take liquid = " << takeWater << ", leave liquid = " << leaveWater << std::endl;
 
-    //     // Try to move in opposite dir
-    //     other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y});
-    //     otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y});
-    //     if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
-    //     {
-    //         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
-    //         ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y}, ctx.block, ctx.data, blockType);
-    //         return {ctx.x - dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
-    //     }
-    // }
+        // Try spreading horizontally toward dir
+        other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y});
+        otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y});
+        if (BlockRegistry::get(other).name == "air")
+        {
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, otherData, blockType);
+            ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y}, ctx.block, sourceData, blockType);
+            def.Write("liquidLevel", ctx.data, leaveWater);
+            ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y});
+            def.Write("liquidLevel", ctx.data, takeWater);
+            return {ctx.x + dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
+        }
+
+        // Try to spread in opposite dir
+        other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y});
+        otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y});
+        if (BlockRegistry::get(other).name == "air")
+        {
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, otherData, blockType);
+            ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y}, ctx.block, sourceData, blockType);
+            def.Write("liquidLevel", ctx.data, leaveWater);
+            ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y});
+            def.Write("liquidLevel", ctx.data, takeWater);
+            return {ctx.x - dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
+        }
+    }
+    else if (liquidLevel == 0)
+    {
+        // Shallow water blocks should just move
+
+        // Try moving horizontally toward dir
+        other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y});
+        otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y});
+        if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
+        {
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
+            ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y}, ctx.block, sourceData, blockType);
+            ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y});
+            return {ctx.x + dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
+        }
+
+        // Try to move in opposite dir
+        other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y});
+        otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y});
+        if (BlockRegistry::get(other).density < BlockRegistry::get(ctx.block).density)
+        {
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, other, otherData, otherType);
+            ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y}, ctx.block, sourceData, blockType);
+            ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y});
+            return {ctx.x - dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
+        }
+    }
 
     // No movement
     return ctx;
@@ -227,119 +259,159 @@ BehaviorContext LiquidFlowBehavior::OnBreak(BehaviorContext ctx)
     return ctx;
 }
 
-// BehaviorContext LiquidCombineBehavior::OnUpdate(BehaviorContext ctx)
-// {
-//     UpdateType otherType = UpdateType::defered;
-//     UpdateType blockType = UpdateType::defered;
+std::vector<DataItemID> LiquidCombineBehavior::Init()
+{
+    return {
+        DataItemRegistry::getIDByName("liquidLevel")
+    };
+}
+BehaviorContext LiquidCombineBehavior::OnUpdate(BehaviorContext ctx)
+{
+    UpdateType otherType = UpdateType::instant;
 
-//     BlockID other;
-//     BlockData otherData;
-//     int dir = (rand() % 2);
-//     if (dir == 0) dir = -1;
+    BlockDef def = BlockRegistry::get(ctx.block);
+    BlockID other;
+    BlockData otherData;
+    // BlockData sourceData = *ctx.data;
 
-//     // Check downwards
-//     other = ctx.chunk->SafeGetBlock({ctx.x, ctx.y + 1});
-//     otherData = ctx.chunk->SafeGetBlockData({ctx.x, ctx.y + 1});
-//     if (other == ctx.block && otherData < 4)
-//     {
-//         int combineLiquid = static_cast<int>(otherData) + static_cast<int>(ctx.data);
+    unsigned int sourceLiquid = def.Read("liquidLevel", ctx.data) + 1;
+    unsigned int otherLiquid;
 
-//         if (combineLiquid <= 4) // only enough liquid to fill one block.
-//         {
-//             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
-//             ctx.chunk->SafeSetBlock({ctx.x, ctx.y + 1}, ctx.block, static_cast<uint8_t>(combineLiquid), blockType);
-//             return {ctx.x, ctx.y + 1, ctx.block, static_cast<uint8_t>(combineLiquid), ctx.chunk};
-//         }
-//         else // both blocks still have liquid
-//         {
-//             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, static_cast<uint8_t>(combineLiquid - 4), otherType);
-//             ctx.chunk->SafeSetBlock({ctx.x, ctx.y + 1}, ctx.block, 4, blockType);
-//             return {ctx.x, ctx.y, ctx.block, static_cast<uint8_t>(combineLiquid - 4), ctx.chunk};
-//         }
-//     }
+    int dir = (rand() % 2);
+    if (dir == 0) dir = -1;
 
-//     // Check down and to the dir
-//     other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y + 1});
-//     otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y + 1});
-//     if (other == ctx.block && otherData < 4)
-//     {
-//         int combineLiquid = static_cast<int>(otherData) + static_cast<int>(ctx.data);
+    // Check downwards
+    other = ctx.chunk->SafeGetBlock({ctx.x, ctx.y + 1});
+    otherData = ctx.chunk->SafeGetBlockData({ctx.x, ctx.y + 1});
+    otherLiquid = def.Read("liquidLevel", &otherData) + 1;
+    if (other == ctx.block && otherLiquid < 4)
+    {
+        unsigned int combineLiquid = otherLiquid + sourceLiquid; // equal to the amount of water in units.
 
-//         if (combineLiquid <= 4) // only enough liquid to fill one block.
-//         {
-//             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
-//             ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, static_cast<uint8_t>(combineLiquid), blockType);
-//             return {ctx.x + dir, ctx.y + 1, ctx.block, static_cast<uint8_t>(combineLiquid), ctx.chunk};
-//         }
-//         else // both blocks still have liquid
-//         {
-//             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, static_cast<uint8_t>(combineLiquid - 4), otherType);
-//             ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, 4, blockType);
-//             return {ctx.x, ctx.y, ctx.block, static_cast<uint8_t>(combineLiquid - 4), ctx.chunk};
-//         }
-//     }
+        if (combineLiquid <= 4) // only enough liquid to fill one block.
+        {
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
+            ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x, ctx.y + 1});
+            def.Write("liquidLevel", ctx.data, combineLiquid - 1);
+            return {ctx.x, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
+        }
+        else // both blocks still have liquid
+        {
+            def.Write("liquidLevel", ctx.data, (combineLiquid - 4) - 1);
 
-//     // Check down and to the opposite dir
-//     other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y + 1});
-//     otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y + 1});
-//     if (other == ctx.block && otherData < 4)
-//     {
-//         int combineLiquid = static_cast<int>(otherData) + static_cast<int>(ctx.data);
+            BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x, ctx.y + 1});
+            def.Write("liquidLevel", otherDataPtr, 4 - 1);
 
-//         if (combineLiquid <= 4) // only enough liquid to fill one block.
-//         {
-//             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
-//             ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y + 1}, ctx.block, static_cast<uint8_t>(combineLiquid), blockType);
-//             return {ctx.x - dir, ctx.y + 1, ctx.block, static_cast<uint8_t>(combineLiquid), ctx.chunk};
-//         }
-//         else // both blocks still have liquid
-//         {
-//             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, static_cast<uint8_t>(combineLiquid - 4), otherType);
-//             ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y + 1}, ctx.block, 4, blockType);
-//             return {ctx.x, ctx.y, ctx.block, static_cast<uint8_t>(combineLiquid - 4), ctx.chunk};
-//         }
-//     }
+            return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
+        }
+    }
 
-//     // Check in dir, level out this time
-//     other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y});
-//     otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y});
-//     if (other == ctx.block && abs(otherData - ctx.data) >= 2)
-//     {
-//         int combineLiquid = static_cast<int>(otherData) + static_cast<int>(ctx.data);
-//         int leaveLiquid   = static_cast<int>(ceil(combineLiquid / 2.0f));
-//         int takeLiquid    = combineLiquid - leaveLiquid;
+    // Check down and to the dir
+    other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y + 1});
+    otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y + 1});
+    otherLiquid = def.Read("liquidLevel", &otherData) + 1;
+    if (other == ctx.block && otherLiquid < 4)
+    {
+        unsigned int combineLiquid = otherLiquid + sourceLiquid; // equal to the amount of water in units.
 
-//         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, takeLiquid, otherType);
-//         ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y}, ctx.block, leaveLiquid, blockType);
-//         return {ctx.x, ctx.y, ctx.block, static_cast<BlockData>(takeLiquid), ctx.chunk};
-//     }
+        if (combineLiquid <= 4) // only enough liquid to fill one block.
+        {
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
+            ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y + 1});
+            def.Write("liquidLevel", ctx.data, combineLiquid - 1);
+            return {ctx.x + dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
+        }
+        else // both blocks still have liquid
+        {
+            def.Write("liquidLevel", ctx.data, (combineLiquid - 4) - 1);
 
-//     // Check in opposite dir, level out
-//     other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y});
-//     otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y});
-//     if (other == ctx.block && abs(otherData - ctx.data) >= 2)
-//     {
-//         int combineLiquid = static_cast<int>(otherData) + static_cast<int>(ctx.data);
-//         int leaveLiquid   = static_cast<int>(ceil(combineLiquid / 2.0f));
-//         int takeLiquid    = combineLiquid - leaveLiquid;
+            BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y + 1});
+            def.Write("liquidLevel", otherDataPtr, 4 - 1);
 
-//         ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, takeLiquid, otherType);
-//         ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y}, ctx.block, leaveLiquid, blockType);
-//         return {ctx.x, ctx.y, ctx.block, static_cast<BlockData>(takeLiquid), ctx.chunk};
-//     }
+            return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
+        }
+    }
 
-//     // No movement
-//     return ctx;
-// }
-// BehaviorContext LiquidCombineBehavior::OnPlace(BehaviorContext ctx)
-// {
-//     return ctx;
-// }
-// BehaviorContext LiquidCombineBehavior::OnBreak(BehaviorContext ctx)
-// {
-//     return ctx;
-// }
+    // Check down and to the opposite dir
+    other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y + 1});
+    otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y + 1});
+    otherLiquid = def.Read("liquidLevel", &otherData) + 1;
+    if (other == ctx.block && otherLiquid < 4)
+    {
+        unsigned int combineLiquid = otherLiquid + sourceLiquid; // equal to the amount of water in units.
 
+        if (combineLiquid <= 4) // only enough liquid to fill one block.
+        {
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
+            ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y + 1});
+            def.Write("liquidLevel", ctx.data, combineLiquid - 1);
+            return {ctx.x - dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
+        }
+        else // both blocks still have liquid
+        {
+            def.Write("liquidLevel", ctx.data, (combineLiquid - 4) - 1);
+
+            BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y + 1});
+            def.Write("liquidLevel", otherDataPtr, 4 - 1);
+
+            return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
+        }
+    }
+
+    // Check in dir, level out this time
+    other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y});
+    otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y});
+    otherLiquid = def.Read("liquidLevel", &otherData) + 1;
+    if (other == ctx.block && abs(sourceLiquid - otherLiquid) >= 2)
+    {
+        unsigned int combineLiquid = sourceLiquid + otherLiquid;
+        unsigned int leaveLiquid   = static_cast<int>(ceil(combineLiquid / 2.0f));
+        unsigned int takeLiquid    = combineLiquid - leaveLiquid;
+
+        def.Write("liquidLevel", ctx.data, takeLiquid - 1);
+
+        BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y});
+        def.Write("liquidLevel", otherDataPtr, leaveLiquid - 1);
+
+        return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
+    }
+
+    // Check in opposite dir, level out
+    other = ctx.chunk->SafeGetBlock({ctx.x - dir, ctx.y});
+    otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y});
+    otherLiquid = def.Read("liquidLevel", &otherData) + 1;
+    if (other == ctx.block && abs(sourceLiquid - otherLiquid) >= 2)
+    {
+        unsigned int combineLiquid = sourceLiquid + otherLiquid;
+        unsigned int leaveLiquid   = static_cast<int>(ceil(combineLiquid / 2.0f));
+        unsigned int takeLiquid    = combineLiquid - leaveLiquid;
+
+        def.Write("liquidLevel", ctx.data, takeLiquid - 1);
+
+        BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y});
+        def.Write("liquidLevel", otherDataPtr, leaveLiquid - 1);
+
+        return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
+    }
+
+    // No movement
+    return ctx;
+}
+BehaviorContext LiquidCombineBehavior::OnPlace(BehaviorContext ctx)
+{
+    return ctx;
+}
+BehaviorContext LiquidCombineBehavior::OnBreak(BehaviorContext ctx)
+{
+    return ctx;
+}
+
+std::vector<DataItemID> LavaToObsidianBehavior::Init()
+{
+    return {
+        DataItemRegistry::getIDByName("liquidLevel")
+    };
+}
 BehaviorContext LavaToObsidianBehavior::OnUpdate(BehaviorContext ctx)
 {
     BlockID other;
@@ -358,8 +430,20 @@ BehaviorContext LavaToObsidianBehavior::OnUpdate(BehaviorContext ctx)
             other = ctx.chunk->SafeGetBlock({offset.x, offset.y});
             if (other == BlockRegistry::getIDByName("water"))
             {
-                ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("obsidian"), 0, UpdateType::defered);
-                return {ctx.x, ctx.y, BlockRegistry::getIDByName("obsidian"), ctx.data, ctx.chunk};
+                const BlockDef& def = BlockRegistry:: get(ctx.block);
+                unsigned int liquidLevel = def.Read("liquidLevel", ctx.data);
+                if (liquidLevel == 3)
+                {
+                    BlockID obsidian = BlockRegistry::getIDByName("obsidian");
+                    ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, obsidian, 0, UpdateType::defered);
+                    return {ctx.x, ctx.y, obsidian, ctx.data, ctx.chunk};
+                }
+                else
+                {
+                    BlockID stone = BlockRegistry::getIDByName("stone");
+                    ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, stone, 0, UpdateType::defered);
+                    return {ctx.x, ctx.y, stone, ctx.data, ctx.chunk};
+                }
             }
         }
     }
