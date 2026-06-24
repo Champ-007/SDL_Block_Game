@@ -64,8 +64,10 @@ struct ChunkSave
 struct Chunk
 {
     private:
-    double deltaTimeTotal;
-    double deltaTimeLimit;
+    double updateTickTimeTotal;
+    double updateTickTimeLimit;
+    double randomTickTimeTotal;
+    double randomTickTimeLimit;
 
     ChunkCoord pos;
     std::vector<BlockID> blocks;
@@ -132,7 +134,9 @@ struct Chunk
 
     void GenerateSave(ChunkSave* save);
 
-    void UpdateBlocks();
+    void UpdateTick();
+
+    void RandomTick();
 
     void UpdateLight();
     
@@ -173,13 +177,13 @@ struct ChunkEngine
 
     bool ChunkExists(ChunkCoord c);
 
-    ChunkSave* ChunkSaveExists(ChunkCoord c);
+    ChunkSave* GetChunkSave(ChunkCoord c);
 
-    auto CreateChunk(const ChunkCoord& c);
+    void CreateChunk(const ChunkCoord& c);
 
     void AddChunkSave(ChunkSave save);
 
-    void AddBlockToChunkSave(vector2 chunk_pos_block, vector2 pos_in_chunk, BlockID block);
+    void AddBlockToChunkSave(vector2 chunk_pos_block, vector2 pos_in_chunk, BlockID block, BlockData data);
 
     int UpdateChunks(float dt);
 

@@ -37,6 +37,7 @@ namespace BlockRegistry
         }});
         RegisterBlock({"grass",         320, 0,   0,   true,  15, false, true,  false, 10, false, {
             std::make_shared<SpreadGrassBehavior>(),
+            std::make_shared<KillGrassBehavior>(),
         }});
         RegisterBlock({"dirt" ,         136, 0,   0,   true,  15, false, true,  false, 10, false, {
             
@@ -51,10 +52,10 @@ namespace BlockRegistry
             
         }});
         RegisterBlock({"yellow_flower", 205, 255, 255, true,  10, false, false, true,  2,  false, {
-            
+            std::make_shared<SpreadFoliageBehavior>(),
         }});
         RegisterBlock({"twigs",         199, 255, 0,   true,  10, false, false, true,  2,  false, {
-            
+            std::make_shared<SpreadFoliageBehavior>(),
         }});
         RegisterBlock({"water",         2,   0,   0,   false, 5,  true,  false, true,  3,  true,  {
             std::make_shared<LiquidFlowBehavior>(),

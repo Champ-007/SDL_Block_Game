@@ -32,7 +32,6 @@ struct BlockDef
     void Write(std::string itemName, BlockData* data, BlockData bits);
 
     // Dispatch an event to all attached behaviors
-    void OnPlace(BehaviorContext ctx) const;
-    void OnBreak(BehaviorContext ctx) const;
-    void OnUpdate(BehaviorContext ctx) const;
+    void UpdateTick(BehaviorContext ctx) const;
+    void RandomTick(BehaviorContext ctx) const;
 };

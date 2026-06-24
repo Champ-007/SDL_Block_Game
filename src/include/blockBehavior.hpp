@@ -27,9 +27,8 @@ struct BlockBehavior
 {
     virtual ~BlockBehavior() = default;
     virtual std::vector<DataItemID> Init() = 0;
-    virtual BehaviorContext OnUpdate(BehaviorContext ctx) = 0;
-    virtual BehaviorContext OnPlace(BehaviorContext ctx) = 0;
-    virtual BehaviorContext OnBreak(BehaviorContext ctx) = 0;
+    virtual BehaviorContext UpdateTick(BehaviorContext ctx) = 0;
+    virtual BehaviorContext RandomTick(BehaviorContext ctx) = 0;
 };
 
 // Actual behavior declarations
@@ -38,43 +37,52 @@ struct BlockBehavior
 struct FallBehavior : BlockBehavior
 {
     std::vector<DataItemID> Init();
-    BehaviorContext OnUpdate(BehaviorContext ctx);
-    BehaviorContext OnPlace(BehaviorContext ctx);
-    BehaviorContext OnBreak(BehaviorContext ctx);
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
 };
 
 // Grass transforms dirt into more grass
 struct SpreadGrassBehavior : BlockBehavior
 {
     std::vector<DataItemID> Init();
-    BehaviorContext OnUpdate(BehaviorContext ctx);
-    BehaviorContext OnPlace(BehaviorContext ctx);
-    BehaviorContext OnBreak(BehaviorContext ctx);
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
+};
+
+struct KillGrassBehavior : BlockBehavior
+{
+    std::vector<DataItemID> Init();
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
+};
+
+struct SpreadFoliageBehavior : BlockBehavior
+{
+    std::vector<DataItemID> Init();
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
 };
 
 // Blocks fall like sand, but also move left and right randomly.
 struct LiquidFlowBehavior : BlockBehavior
 {
     std::vector<DataItemID> Init();
-    BehaviorContext OnUpdate(BehaviorContext ctx);
-    BehaviorContext OnPlace(BehaviorContext ctx);
-    BehaviorContext OnBreak(BehaviorContext ctx);
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
 };
 
 // Liquids look down and at diagonals to combine with same blocks
 struct LiquidCombineBehavior : BlockBehavior
 {
     std::vector<DataItemID> Init();
-    BehaviorContext OnUpdate(BehaviorContext ctx);
-    BehaviorContext OnPlace(BehaviorContext ctx);
-    BehaviorContext OnBreak(BehaviorContext ctx);
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
 };
 
 // Block checks four adjacent blocks for water, turns to obsidian if true
 struct LavaToObsidianBehavior : BlockBehavior
 {
     std::vector<DataItemID> Init();
-    BehaviorContext OnUpdate(BehaviorContext ctx);
-    BehaviorContext OnPlace(BehaviorContext ctx);
-    BehaviorContext OnBreak(BehaviorContext ctx);
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
 };

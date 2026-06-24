@@ -19,8 +19,11 @@ std::vector<DataItemID> FallBehavior::Init()
 
     };
 }
-BehaviorContext FallBehavior::OnUpdate(BehaviorContext ctx)
+BehaviorContext FallBehavior::UpdateTick(BehaviorContext ctx)
 {
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
     UpdateType otherType = UpdateType::defered;
     UpdateType blockType = UpdateType::defered;
 
@@ -62,16 +65,13 @@ BehaviorContext FallBehavior::OnUpdate(BehaviorContext ctx)
         return {ctx.x - dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
     }
 
-    // No movement
+    // No change
     return ctx;
 
 }
-BehaviorContext FallBehavior::OnPlace(BehaviorContext ctx)
+BehaviorContext FallBehavior::RandomTick(BehaviorContext ctx)
 {
-    return ctx;
-}
-BehaviorContext FallBehavior::OnBreak(BehaviorContext ctx)
-{
+    // No change
     return ctx;
 }
 
@@ -81,9 +81,16 @@ std::vector<DataItemID> SpreadGrassBehavior::Init()
         
     };
 }
-BehaviorContext SpreadGrassBehavior::OnUpdate(BehaviorContext ctx)
+BehaviorContext SpreadGrassBehavior::UpdateTick(BehaviorContext ctx)
 {
-    // std::cout << "Debug: grass update attempted." << std::endl;
+    // No change
+    return ctx;
+}
+BehaviorContext SpreadGrassBehavior::RandomTick(BehaviorContext ctx)
+{
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
     BlockID other;
 
     vector2 offsets[6] = {
@@ -104,17 +111,83 @@ BehaviorContext SpreadGrassBehavior::OnUpdate(BehaviorContext ctx)
             if (ctx.chunk->SafeGetBlock({offset.x, offset.y - 1}) == BlockRegistry::getIDByName("air"))
             {
                 ctx.chunk->SafeSetBlock({offset.x, offset.y}, ctx.block, 0, UpdateType::defered);
+                break;
             }
         }
     }
+
+    // No change
     return ctx;
 }
-BehaviorContext SpreadGrassBehavior::OnPlace(BehaviorContext ctx)
+
+std::vector<DataItemID> KillGrassBehavior::Init()
 {
+    return {
+        
+    };
+}
+BehaviorContext KillGrassBehavior::UpdateTick(BehaviorContext ctx)
+{
+    // No change
     return ctx;
 }
-BehaviorContext SpreadGrassBehavior::OnBreak(BehaviorContext ctx)
+BehaviorContext KillGrassBehavior::RandomTick(BehaviorContext ctx)
 {
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
+    BlockID other;
+
+    other = ctx.chunk->SafeGetBlock({ctx.x, ctx.y - 1});
+    if (other != BlockRegistry::getIDByName("air"))
+    {
+        ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("dirt"), 0, UpdateType::defered);
+    }
+
+    // No change
+    return {ctx.x, ctx.y, BlockRegistry::getIDByName("dirt"), 0, ctx.chunk};
+}
+
+std::vector<DataItemID> SpreadFoliageBehavior::Init()
+{
+    return {
+        
+    };
+}
+BehaviorContext SpreadFoliageBehavior::UpdateTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
+BehaviorContext SpreadFoliageBehavior::RandomTick(BehaviorContext ctx)
+{
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
+    BlockID other;
+
+    vector2 offsets[4] = {
+        {0, -1},
+        {-1, 0},
+        {1, 0},
+        {0, 1}
+    };
+
+    bool once = false;
+    for (vector2 offset : offsets)
+    {
+        offset += {ctx.x, ctx.y};
+        other = ctx.chunk->SafeGetBlock({offset.x, offset.y});
+        if (other == BlockRegistry::getIDByName("air"))
+        {
+            if (once) std::cout << "Debug: violation. Break; did not work." << std::endl;
+            ctx.chunk->SafeSetBlock({offset.x, offset.y}, ctx.block, 0, UpdateType::defered);
+            once = true;
+            break;
+        }
+    }
+
+    // No change
     return ctx;
 }
 
@@ -124,8 +197,11 @@ std::vector<DataItemID> LiquidFlowBehavior::Init()
         DataItemRegistry::getIDByName("liquidLevel")
     };
 }
-BehaviorContext LiquidFlowBehavior::OnUpdate(BehaviorContext ctx)
+BehaviorContext LiquidFlowBehavior::UpdateTick(BehaviorContext ctx)
 {
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+
     UpdateType otherType = UpdateType::defered;
     UpdateType blockType = UpdateType::defered;
 
@@ -199,11 +275,11 @@ BehaviorContext LiquidFlowBehavior::OnUpdate(BehaviorContext ctx)
         otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y});
         if (BlockRegistry::get(other).name == "air")
         {
+            def.Write("liquidLevel", &otherData, leaveWater);
+            def.Write("liquidLevel", &sourceData, takeWater);
             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, otherData, blockType);
             ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y}, ctx.block, sourceData, blockType);
-            def.Write("liquidLevel", ctx.data, leaveWater);
             ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y});
-            def.Write("liquidLevel", ctx.data, takeWater);
             return {ctx.x + dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
         }
 
@@ -212,11 +288,11 @@ BehaviorContext LiquidFlowBehavior::OnUpdate(BehaviorContext ctx)
         otherData = ctx.chunk->SafeGetBlockData({ctx.x - dir, ctx.y});
         if (BlockRegistry::get(other).name == "air")
         {
+            def.Write("liquidLevel", &otherData, leaveWater);
+            def.Write("liquidLevel", &sourceData, takeWater);
             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, otherData, blockType);
             ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y}, ctx.block, sourceData, blockType);
-            def.Write("liquidLevel", ctx.data, leaveWater);
             ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y});
-            def.Write("liquidLevel", ctx.data, takeWater);
             return {ctx.x - dir, ctx.y, ctx.block, ctx.data, ctx.chunk};
         }
     }
@@ -247,15 +323,12 @@ BehaviorContext LiquidFlowBehavior::OnUpdate(BehaviorContext ctx)
         }
     }
 
-    // No movement
+    // No change
     return ctx;
 }
-BehaviorContext LiquidFlowBehavior::OnPlace(BehaviorContext ctx)
+BehaviorContext LiquidFlowBehavior::RandomTick(BehaviorContext ctx)
 {
-    return ctx;
-}
-BehaviorContext LiquidFlowBehavior::OnBreak(BehaviorContext ctx)
-{
+    // No change
     return ctx;
 }
 
@@ -265,13 +338,18 @@ std::vector<DataItemID> LiquidCombineBehavior::Init()
         DataItemRegistry::getIDByName("liquidLevel")
     };
 }
-BehaviorContext LiquidCombineBehavior::OnUpdate(BehaviorContext ctx)
+BehaviorContext LiquidCombineBehavior::UpdateTick(BehaviorContext ctx)
 {
-    UpdateType otherType = UpdateType::instant;
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
+    UpdateType otherType = UpdateType::defered;
+    UpdateType blockType = UpdateType::defered;
 
     BlockDef def = BlockRegistry::get(ctx.block);
     BlockID other;
     BlockData otherData;
+    BlockData sourceData = *ctx.data;
     // BlockData sourceData = *ctx.data;
 
     unsigned int sourceLiquid = def.Read("liquidLevel", ctx.data) + 1;
@@ -290,17 +368,19 @@ BehaviorContext LiquidCombineBehavior::OnUpdate(BehaviorContext ctx)
 
         if (combineLiquid <= 4) // only enough liquid to fill one block.
         {
+            def.Write("liquidLevel", &sourceData, combineLiquid - 1);
             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y + 1}, ctx.block, sourceData, blockType);
             ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x, ctx.y + 1});
-            def.Write("liquidLevel", ctx.data, combineLiquid - 1);
             return {ctx.x, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
         }
         else // both blocks still have liquid
         {
-            def.Write("liquidLevel", ctx.data, (combineLiquid - 4) - 1);
+            def.Write("liquidLevel", &sourceData, (combineLiquid - 4) - 1);
+            def.Write("liquidLevel", &otherData, 4 - 1);
 
-            BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x, ctx.y + 1});
-            def.Write("liquidLevel", otherDataPtr, 4 - 1);
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, sourceData, blockType);
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y + 1}, ctx.block, otherData, blockType);
 
             return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
         }
@@ -316,17 +396,19 @@ BehaviorContext LiquidCombineBehavior::OnUpdate(BehaviorContext ctx)
 
         if (combineLiquid <= 4) // only enough liquid to fill one block.
         {
+            def.Write("liquidLevel", &sourceData, combineLiquid - 1);
             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
+            ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, sourceData, blockType);
             ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y + 1});
-            def.Write("liquidLevel", ctx.data, combineLiquid - 1);
             return {ctx.x + dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
         }
         else // both blocks still have liquid
         {
-            def.Write("liquidLevel", ctx.data, (combineLiquid - 4) - 1);
+            def.Write("liquidLevel", &sourceData, (combineLiquid - 4) - 1);
+            def.Write("liquidLevel", &otherData, 4 - 1);
 
-            BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y + 1});
-            def.Write("liquidLevel", otherDataPtr, 4 - 1);
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, sourceData, blockType);
+            ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, otherData, blockType);
 
             return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
         }
@@ -342,17 +424,19 @@ BehaviorContext LiquidCombineBehavior::OnUpdate(BehaviorContext ctx)
 
         if (combineLiquid <= 4) // only enough liquid to fill one block.
         {
+            def.Write("liquidLevel", &sourceData, combineLiquid - 1);
             ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, BlockRegistry::getIDByName("air"), 0, otherType);
+            ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y + 1}, ctx.block, sourceData, blockType);
             ctx.data = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y + 1});
-            def.Write("liquidLevel", ctx.data, combineLiquid - 1);
             return {ctx.x - dir, ctx.y + 1, ctx.block, ctx.data, ctx.chunk};
         }
         else // both blocks still have liquid
         {
-            def.Write("liquidLevel", ctx.data, (combineLiquid - 4) - 1);
+            def.Write("liquidLevel", &sourceData, (combineLiquid - 4) - 1);
+            def.Write("liquidLevel", &otherData, 4 - 1);
 
-            BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y + 1});
-            def.Write("liquidLevel", otherDataPtr, 4 - 1);
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, sourceData, blockType);
+            ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y + 1}, ctx.block, otherData, blockType);
 
             return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
         }
@@ -362,16 +446,17 @@ BehaviorContext LiquidCombineBehavior::OnUpdate(BehaviorContext ctx)
     other = ctx.chunk->SafeGetBlock({ctx.x + dir, ctx.y});
     otherData = ctx.chunk->SafeGetBlockData({ctx.x + dir, ctx.y});
     otherLiquid = def.Read("liquidLevel", &otherData) + 1;
-    if (other == ctx.block && abs(sourceLiquid - otherLiquid) >= 2)
+    if (other == ctx.block && abs(sourceLiquid - otherLiquid) >= 1)
     {
         unsigned int combineLiquid = sourceLiquid + otherLiquid;
-        unsigned int leaveLiquid   = static_cast<int>(ceil(combineLiquid / 2.0f));
-        unsigned int takeLiquid    = combineLiquid - leaveLiquid;
+        unsigned int sendLiquid   = static_cast<int>(ceil(combineLiquid / 2.0f));
+        unsigned int keepLiquid    = combineLiquid - sendLiquid;
 
-        def.Write("liquidLevel", ctx.data, takeLiquid - 1);
+        def.Write("liquidLevel", &sourceData, keepLiquid - 1);
+        def.Write("liquidLevel", &otherData, sendLiquid - 1);
 
-        BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x + dir, ctx.y});
-        def.Write("liquidLevel", otherDataPtr, leaveLiquid - 1);
+        ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, sourceData, blockType);
+        ctx.chunk->SafeSetBlock({ctx.x + dir, ctx.y}, ctx.block, otherData, blockType);
 
         return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
     }
@@ -383,26 +468,24 @@ BehaviorContext LiquidCombineBehavior::OnUpdate(BehaviorContext ctx)
     if (other == ctx.block && abs(sourceLiquid - otherLiquid) >= 2)
     {
         unsigned int combineLiquid = sourceLiquid + otherLiquid;
-        unsigned int leaveLiquid   = static_cast<int>(ceil(combineLiquid / 2.0f));
-        unsigned int takeLiquid    = combineLiquid - leaveLiquid;
+        unsigned int sendLiquid   = static_cast<int>(ceil(combineLiquid / 2.0f));
+        unsigned int keepLiquid    = combineLiquid - sendLiquid;
 
-        def.Write("liquidLevel", ctx.data, takeLiquid - 1);
+        def.Write("liquidLevel", &sourceData, keepLiquid - 1);
+        def.Write("liquidLevel", &otherData, sendLiquid - 1);
 
-        BlockData* otherDataPtr = ctx.chunk->SafeTakeBlockData({ctx.x - dir, ctx.y});
-        def.Write("liquidLevel", otherDataPtr, leaveLiquid - 1);
+        ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, sourceData, blockType);
+        ctx.chunk->SafeSetBlock({ctx.x - dir, ctx.y}, ctx.block, otherData, blockType);
 
         return {ctx.x, ctx.y, ctx.block, ctx.data, ctx.chunk};
     }
 
-    // No movement
+    // No change
     return ctx;
 }
-BehaviorContext LiquidCombineBehavior::OnPlace(BehaviorContext ctx)
+BehaviorContext LiquidCombineBehavior::RandomTick(BehaviorContext ctx)
 {
-    return ctx;
-}
-BehaviorContext LiquidCombineBehavior::OnBreak(BehaviorContext ctx)
-{
+    // No change
     return ctx;
 }
 
@@ -412,8 +495,11 @@ std::vector<DataItemID> LavaToObsidianBehavior::Init()
         DataItemRegistry::getIDByName("liquidLevel")
     };
 }
-BehaviorContext LavaToObsidianBehavior::OnUpdate(BehaviorContext ctx)
+BehaviorContext LavaToObsidianBehavior::UpdateTick(BehaviorContext ctx)
 {
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
     BlockID other;
     vector2 offsets[4] = {
         {-1, 0},
@@ -451,11 +537,8 @@ BehaviorContext LavaToObsidianBehavior::OnUpdate(BehaviorContext ctx)
     // No change
     return ctx;
 }
-BehaviorContext LavaToObsidianBehavior::OnPlace(BehaviorContext ctx)
+BehaviorContext LavaToObsidianBehavior::RandomTick(BehaviorContext ctx)
 {
-    return ctx;
-}
-BehaviorContext LavaToObsidianBehavior::OnBreak(BehaviorContext ctx)
-{
+    // No change
     return ctx;
 }

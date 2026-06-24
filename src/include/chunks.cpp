@@ -12,8 +12,10 @@ Chunk::Chunk(ChunkCoord c, int seed, ChunkEngine* _master)
     master = _master;
     biome = 0;
     Generate(c, seed);
-    deltaTimeTotal = 0.0f;
-    deltaTimeLimit = 128.0f;
+    updateTickTimeTotal = 0.0f;
+    updateTickTimeLimit = 128.0f;
+    randomTickTimeTotal = 0.0f;
+    randomTickTimeLimit = 32.0f;
 }
 
 int Chunk::GetBiome()
@@ -275,7 +277,7 @@ void Chunk::SafeSetBlock(vector2 pos_block, BlockID block, BlockData data, Updat
             pos.x * CHUNK_WIDTH,
             pos.y * CHUNK_WIDTH
         };
-        master->AddBlockToChunkSave(chunk_pos_block, pos_block, block);
+        master->AddBlockToChunkSave(chunk_pos_block, pos_block, block, data);
     }
     else
     {
@@ -441,9 +443,8 @@ void Chunk::GenerateSave(ChunkSave* save)
     
 }
 
-void Chunk::UpdateBlocks()
+void Chunk::UpdateTick()
 {
-    srand((unsigned int)time(NULL));
     // int budget = 200;
     while (!BlockUpdateQueue.empty())
     {
@@ -473,12 +474,36 @@ void Chunk::UpdateBlocks()
             ctx.x = floor(index % CHUNK_WIDTH);
             ctx.y = floor(index / CHUNK_WIDTH);
     
-            def.OnUpdate(ctx);
+            def.UpdateTick(ctx);
 
         }
     }
     BlockUpdateQueue.splice(BlockUpdateQueue.end(), BlockUpdateDefer);
     BlockUpdateDefer.clear();
+}
+
+void Chunk::RandomTick()
+{
+    unsigned int index = rand() % CHUNK_LENGTH;
+    if (index >= CHUNK_LENGTH || index < 0)
+    {
+        std::cout << "Error: bad random tick index: " << index << std::endl;
+        return;
+    }
+
+    BlockID block = blocks.at(index);
+    BlockData* data = &blockData.at(index);
+    BlockDef def = BlockRegistry::get(block);
+
+    // Create the context for the RandomTick function
+    BehaviorContext ctx;
+    ctx.block = block;
+    ctx.data = data;
+    ctx.chunk = this;
+    ctx.x = floor(index % CHUNK_WIDTH);
+    ctx.y = floor(index / CHUNK_WIDTH);
+
+    def.RandomTick(ctx);
 }
 
 void Chunk::UpdateLight()
@@ -622,19 +647,30 @@ void Chunk::UpdateLight()
 
 bool Chunk::Update(float dt)
 {
-    deltaTimeTotal += dt;
-    while (deltaTimeTotal > deltaTimeLimit)
+    // Random tick (gradual change, growth)
+    randomTickTimeTotal += dt;
+    while (randomTickTimeTotal > randomTickTimeLimit)
     {
-        UpdateBlocks();
-        deltaTimeTotal -= deltaTimeLimit;
+        // std::cout << "Debug: random tick.\n";
+        RandomTick();
+        randomTickTimeTotal -= randomTickTimeLimit;
     }
+
+    // Block update tick (chain reaction)
+    updateTickTimeTotal += dt;
+    while (updateTickTimeTotal > updateTickTimeLimit)
+    {
+        UpdateTick();
+        updateTickTimeTotal -= updateTickTimeLimit;
+    }
+
     UpdateLight();
     return false;
 }
 
 ChunkEngine::ChunkEngine()
 {
-    chunk_radius = 2;
+    chunk_radius = 4;
     sky_light = 1.0f;
     light_decay = 16;
     srand((unsigned int)time(NULL));
@@ -682,7 +718,7 @@ bool ChunkEngine::ChunkExists(ChunkCoord c)
     return chunks.find(c) != chunks.end();
 }
 
-ChunkSave* ChunkEngine::ChunkSaveExists(ChunkCoord c)
+ChunkSave* ChunkEngine::GetChunkSave(ChunkCoord c)
 {
     for (size_t i = 0; i < saveData.size(); i++)
     {
@@ -699,14 +735,14 @@ void ChunkEngine::AddChunkSave(ChunkSave save)
     saveData.push_back(save);
 }
 
-void ChunkEngine::AddBlockToChunkSave(vector2 chunk_pos_block, vector2 pos_in_chunk, BlockID block)
+void ChunkEngine::AddBlockToChunkSave(vector2 chunk_pos_block, vector2 pos_in_chunk, BlockID block, BlockData data)
 {
     ChunkCoord pos_chunk = {
         static_cast<int>(chunk_pos_block.x / CHUNK_WIDTH),
         static_cast<int>(chunk_pos_block.y / CHUNK_WIDTH)
     };
 
-    ChunkSave* save = ChunkSaveExists(pos_chunk);
+    ChunkSave* save = GetChunkSave(pos_chunk);
     if (save != nullptr)
     {
         int index = pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH);
@@ -725,10 +761,12 @@ void ChunkEngine::AddBlockToChunkSave(vector2 chunk_pos_block, vector2 pos_in_ch
         if (block_exists)
         {
             save->blocks.at(block_list_index) = block;
+            save->data.at(block_list_index) = data;
         }
         else
         {
             save->blocks.push_back(block);
+            save->data.push_back(data);
             save->positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
         }
     }
@@ -737,31 +775,26 @@ void ChunkEngine::AddBlockToChunkSave(vector2 chunk_pos_block, vector2 pos_in_ch
         ChunkSave newChunkSave;
         newChunkSave.coord = pos_chunk;
         newChunkSave.blocks.push_back(block);
+        newChunkSave.data.push_back(data);
         newChunkSave.positions.push_back(pos_in_chunk.x + (pos_in_chunk.y * CHUNK_WIDTH));
         AddChunkSave(newChunkSave);
     }
 }
 
-auto ChunkEngine::CreateChunk(const ChunkCoord& c)
+void ChunkEngine::CreateChunk(const ChunkCoord& c)
 {
-    ChunkSave* save = ChunkSaveExists(c);
+    auto itPair = chunks.emplace(c, std::make_unique<Chunk>(c, world_seed, this));
+    ChunkSave* save = GetChunkSave(c);
     if (save != nullptr)
     {
-        auto chunkPair = chunks.emplace(c, std::make_unique<Chunk>(c, world_seed, this));
-        if (chunkPair.second)
-        {
-            chunkPair.first->second.get()->GenerateSave(save);
-        }
-        return chunkPair;
-    }
-    else
-    {
-        return chunks.emplace(c, std::make_unique<Chunk>(c, world_seed, this));
+        itPair.first->second->GenerateSave(save);
     }
 }
 
 int ChunkEngine::UpdateChunks(float dt)
 {
+    // std::cout << "Debug: updating rand.\n"; 
+    srand((unsigned int)time(NULL));
     int count = 0;
     for (auto i = chunks.begin(); i != chunks.end(); ++i)
     {
@@ -787,7 +820,12 @@ void ChunkEngine::UpdateWorld(vector2 pos)
                 cam_chunk_y + dy
             };
             
-            CreateChunk(target);
+            auto it = chunks.find(target);
+            if (it == chunks.end())
+            {
+                // Chunk does not exist
+                CreateChunk(target);
+            }
         }
     }
 
@@ -899,13 +937,14 @@ void ChunkEngine::SetBlock(vector2 pos_block, BlockID block, BlockData data, Upd
 
     auto it  = chunks.find(pos_chunk);
 
+    vector2 chunk_blockPos = {
+        pos_chunk.x * CHUNK_WIDTH,
+        pos_chunk.y * CHUNK_WIDTH
+    };
+    vector2 pos_in_chunk = pos_block - chunk_blockPos;
+
     if (it != chunks.end())
     {
-        vector2 chunk_blockPos = {
-            pos_chunk.x * CHUNK_WIDTH,
-            pos_chunk.y * CHUNK_WIDTH
-        };
-        vector2 pos_in_chunk = pos_block - chunk_blockPos;
         
         it->second->SetBlock(pos_in_chunk.x, pos_in_chunk.y, block);
         it->second->SetBlockData(pos_in_chunk.x, pos_in_chunk.y, data);
@@ -929,8 +968,8 @@ void ChunkEngine::SetBlock(vector2 pos_block, BlockID block, BlockData data, Upd
         it->second->SoftDeferBlockUpdate(pos_in_chunk.x, pos_in_chunk.y + 1); // down
         it->second->SoftDeferBlockUpdate(pos_in_chunk.x, pos_in_chunk.y - 1); // up
         
-        AddBlockToChunkSave(chunk_blockPos, pos_in_chunk, block);
     }
+    AddBlockToChunkSave(chunk_blockPos, pos_in_chunk, block, data);
 
 }
 

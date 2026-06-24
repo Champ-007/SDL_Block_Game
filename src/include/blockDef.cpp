@@ -75,29 +75,20 @@ void BlockDef::Write(std::string itemName, BlockData* data, BlockData bits)
 }
 
 // Convenience: dispatch an event to all attached behaviors
-void BlockDef::OnPlace(BehaviorContext ctx) const
+void BlockDef::UpdateTick(BehaviorContext ctx) const
 {
     for (size_t i = 0; i < behaviors.size(); i++)
     {
         auto b = behaviors.at(i);
-        b->OnPlace(ctx);
+        ctx = b->UpdateTick(ctx);
     }
 }
 
-void BlockDef::OnBreak(BehaviorContext ctx) const
+void BlockDef::RandomTick(BehaviorContext ctx) const
 {
     for (size_t i = 0; i < behaviors.size(); i++)
     {
         auto b = behaviors.at(i);
-        b->OnBreak(ctx);
-    }
-}
-
-void BlockDef::OnUpdate(BehaviorContext ctx) const
-{
-    for (size_t i = 0; i < behaviors.size(); i++)
-    {
-        auto b = behaviors.at(i);
-        ctx = b->OnUpdate(ctx);
+        ctx = b->RandomTick(ctx);
     }
 }
