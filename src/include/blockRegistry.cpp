@@ -69,5 +69,8 @@ namespace BlockRegistry
         RegisterBlock({"gravel",        324, 0,   0,   true,  5,  false, true,  false, 8,  false, {
             std::make_shared<FallBehavior>(),
         }});
+        RegisterBlock({"trapdoor",      404, 0,   0,   true,  15, false, true,  true,  10, false, {
+            std::make_shared<trapdoorBehavior>(),
+        }});
     }
 }

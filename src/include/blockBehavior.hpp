@@ -29,6 +29,7 @@ struct BlockBehavior
     virtual std::vector<DataItemID> Init() = 0;
     virtual BehaviorContext UpdateTick(BehaviorContext ctx) = 0;
     virtual BehaviorContext RandomTick(BehaviorContext ctx) = 0;
+    virtual BehaviorContext SmartTick(BehaviorContext ctx) = 0;
 };
 
 // Actual behavior declarations
@@ -39,6 +40,7 @@ struct FallBehavior : BlockBehavior
     std::vector<DataItemID> Init();
     BehaviorContext UpdateTick(BehaviorContext ctx);
     BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
 };
 
 // Grass transforms dirt into more grass
@@ -47,20 +49,25 @@ struct SpreadGrassBehavior : BlockBehavior
     std::vector<DataItemID> Init();
     BehaviorContext UpdateTick(BehaviorContext ctx);
     BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
 };
 
+// Grass covered by something becomes dirt
 struct KillGrassBehavior : BlockBehavior
 {
     std::vector<DataItemID> Init();
     BehaviorContext UpdateTick(BehaviorContext ctx);
     BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
 };
 
+// blocks turn adjacent air into itself, up to a certain distance
 struct SpreadFoliageBehavior : BlockBehavior
 {
     std::vector<DataItemID> Init();
     BehaviorContext UpdateTick(BehaviorContext ctx);
     BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
 };
 
 // Blocks fall like sand, but also move left and right randomly.
@@ -69,6 +76,7 @@ struct LiquidFlowBehavior : BlockBehavior
     std::vector<DataItemID> Init();
     BehaviorContext UpdateTick(BehaviorContext ctx);
     BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
 };
 
 // Liquids look down and at diagonals to combine with same blocks
@@ -77,6 +85,7 @@ struct LiquidCombineBehavior : BlockBehavior
     std::vector<DataItemID> Init();
     BehaviorContext UpdateTick(BehaviorContext ctx);
     BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
 };
 
 // Block checks four adjacent blocks for water, turns to obsidian if true
@@ -85,4 +94,14 @@ struct LavaToObsidianBehavior : BlockBehavior
     std::vector<DataItemID> Init();
     BehaviorContext UpdateTick(BehaviorContext ctx);
     BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
+};
+
+// Switches between solid and not solid based on smart updates
+struct trapdoorBehavior : BlockBehavior
+{
+    std::vector<DataItemID> Init();
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
 };

@@ -15,7 +15,12 @@ Chunk::Chunk(ChunkCoord c, int seed, ChunkEngine* _master)
     updateTickTimeTotal = 0.0f;
     updateTickTimeLimit = 128.0f;
     randomTickTimeTotal = 0.0f;
-    randomTickTimeLimit = 32.0f;
+    randomTickTimeLimit = 96.0f;
+}
+
+uint32_t Chunk::GetRand()
+{
+    return master->GetRand();
 }
 
 int Chunk::GetBiome()
@@ -331,8 +336,10 @@ BlockData* Chunk::SafeTakeBlockData(vector2 pos_block)
 
 void Chunk::Generate(ChunkCoord c, int seed)
 {
-    // Basic random object for block data
-    srand((unsigned int)seed);
+    // mersenne twister for blockdata
+    std::mt19937 randData;
+    ChunkHasher hasher;
+    randData.seed(hasher(c));
 
     // noise object for general terrain density
     FastNoiseLite terrain_noise;
@@ -368,17 +375,24 @@ void Chunk::Generate(ChunkCoord c, int seed)
             sky_lights[i] = 0;
             block_lights[i] = 0;
             blockData[i] = 0;
-            if (density < 0.0f)
+
+            if (density < -0.95f)
+            {
+                blocks[i] = BlockRegistry::getIDByName("trapdoor");
+            }
+            else if (density < 0.0f)
             {
                 if (terrain_noise.GetNoise((float)index_x, (float)index_y + 1) > 0.0f)
                 {
                     if (density2 < -0.4)
                     {
                         blocks[i] = BlockRegistry::getIDByName("yellow_flower");
+                        blockData[i] = randData();
                     }
                     else if (density2 > 0.4)
                     {
                         blocks[i] = BlockRegistry::getIDByName("twigs");
+                        blockData[i] = randData();
                     }
                 }
                 else
@@ -387,12 +401,12 @@ void Chunk::Generate(ChunkCoord c, int seed)
                     if (density2 < -limit)
                     {
                         blocks[i] = BlockRegistry::getIDByName("water");
-                        blockData[i] = rand();
+                        blockData[i] = randData();
                     }
                     else if (density2 > limit)
                     {
                         blocks[i] = BlockRegistry::getIDByName("lava");
-                        blockData[i] = rand();
+                        blockData[i] = randData();
                     }
                     else
                     blocks[i] = BlockRegistry::getIDByName("air");
@@ -484,7 +498,7 @@ void Chunk::UpdateTick()
 
 void Chunk::RandomTick()
 {
-    unsigned int index = rand() % CHUNK_LENGTH;
+    unsigned int index = GetRand() % CHUNK_LENGTH;
     if (index >= CHUNK_LENGTH || index < 0)
     {
         std::cout << "Error: bad random tick index: " << index << std::endl;
@@ -673,10 +687,8 @@ ChunkEngine::ChunkEngine()
     chunk_radius = 4;
     sky_light = 1.0f;
     light_decay = 16;
-    srand((unsigned int)time(NULL));
-
-    std::random_device rd;
     world_seed = rd();
+    random.seed(world_seed);
     DataItemRegistry::Init();
     BlockRegistry::Init();
     // Nevermind!
@@ -701,6 +713,11 @@ int ChunkEngine::GetSeed()
 void ChunkEngine::SetSeed(int v)
 {
     world_seed = v;
+}
+
+uint32_t ChunkEngine::GetRand()
+{
+    return random();
 }
 
 std::vector<ChunkSave>& ChunkEngine::GetChunkSaves()
@@ -793,8 +810,7 @@ void ChunkEngine::CreateChunk(const ChunkCoord& c)
 
 int ChunkEngine::UpdateChunks(float dt)
 {
-    // std::cout << "Debug: updating rand.\n"; 
-    srand((unsigned int)time(NULL));
+    // std::cout << "Debug: updating rand.\n";
     int count = 0;
     for (auto i = chunks.begin(); i != chunks.end(); ++i)
     {
@@ -809,6 +825,15 @@ void ChunkEngine::UpdateWorld(vector2 pos)
 {
     int cam_chunk_x = static_cast<int>(floor(pos.x / static_cast<float>(CHUNK_WIDTH * BLOCK_WIDTH)));
     int cam_chunk_y = static_cast<int>(floor(pos.y / static_cast<float>(CHUNK_WIDTH * BLOCK_WIDTH)));
+    int budget = 10;
+
+    auto it = chunks.find({cam_chunk_x, cam_chunk_y});
+    if (it == chunks.end())
+    {
+        // Chunk does not exist
+        CreateChunk({cam_chunk_x, cam_chunk_y});
+        budget--;
+    }
 
     // Spawn new chunks / track what chunks are in our desired zone
     for (int dx = -chunk_radius; dx <= chunk_radius; dx++)
@@ -821,10 +846,11 @@ void ChunkEngine::UpdateWorld(vector2 pos)
             };
             
             auto it = chunks.find(target);
-            if (it == chunks.end())
+            if (it == chunks.end() && budget > 0)
             {
                 // Chunk does not exist
                 CreateChunk(target);
+                budget--;
             }
         }
     }
@@ -866,11 +892,16 @@ vector2 ChunkEngine::CollidePoint(vector2 pos)
         vector2 relative_block_pos = pos_block - chunk_blockPos;
 
         int block = it->second->GetBlock(relative_block_pos.x, relative_block_pos.y);
+        BlockData data = it->second->GetBlockData(relative_block_pos.x, relative_block_pos.y);
         BlockDef def = BlockRegistry::get(block);
-        // std::cout << "Debug: block = " << block << std::endl;
+        
+        bool canOpen = def.Find("doorOpen");
+
+        bool collide = def.isSolid;
+        if (canOpen) collide = collide && static_cast<bool>(def.Read("doorOpen", &data)) == false;
 
         // Return the value of that block
-        if (def.isSolid)
+        if (collide)
         {
             // Get the fix upwards and leftwards
             vector2 block_world = {
@@ -1059,11 +1090,43 @@ std::pair<bool, BlockID> ChunkEngine::MineBlock(vector2 pos_block, float mining)
 bool ChunkEngine::BuildBlock(vector2 pos_block, BlockID block)
 {
     BlockID block_old = GetBlock(pos_block);
-    BlockDef def = BlockRegistry::get(block_old);
+    const BlockDef& def = BlockRegistry::get(block_old);
     if (def.placeOver)
     {
         SetBlock(pos_block, block, 0, UpdateType::instant);
         return true;
+    }
+    else
+    {
+        ChunkCoord chunkPos = {
+            static_cast<int>(floor(pos_block.x / CHUNK_WIDTH)),
+            static_cast<int>(floor(pos_block.y / CHUNK_WIDTH))
+        };
+
+        vector2 chunkPos_block = {
+            chunkPos.x * CHUNK_WIDTH,
+            chunkPos.y * CHUNK_WIDTH
+        };
+
+        vector2 pos_in_chunk = pos_block - chunkPos_block;
+        auto it = chunks.find(chunkPos);
+        if (it != chunks.end())
+        {
+            BlockData* data = TakeBlockData(pos_block);
+            BlockDef def = BlockRegistry::get(block_old);
+    
+            // Create the context for the RandomTick function
+            BehaviorContext ctx;
+            ctx.block = block_old;
+            ctx.data = data;
+            ctx.chunk = it->second.get();
+            ctx.x = pos_in_chunk.x;
+            ctx.y = pos_in_chunk.y;
+
+    
+            def.SmartTick(ctx);
+        }
+
     }
     return false;
 }

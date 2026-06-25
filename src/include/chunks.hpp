@@ -12,6 +12,7 @@
 #include <FastNoiseLite.h>
 #include <string>
 #include <list>
+#include <random>
 
 #include "figures.hpp"
 #include "vector2.hpp"
@@ -91,6 +92,8 @@ struct Chunk
     public:
     Chunk(ChunkCoord c, int seed, ChunkEngine* _master);
 
+    uint32_t GetRand();
+
     int GetBiome();
 
     ChunkCoord GetPosition();
@@ -156,6 +159,8 @@ struct ChunkEngine
 
     // std::vector<ChunkCoord> adresses;
 
+    std::random_device rd;
+    std::mt19937 random;
     int world_seed;
 
     int chunk_radius;
@@ -170,6 +175,8 @@ struct ChunkEngine
 
     int  GetSeed();
     void SetSeed(int v);
+
+    uint32_t GetRand();
 
     std::vector<ChunkSave>& GetChunkSaves();
 

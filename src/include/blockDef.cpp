@@ -47,6 +47,17 @@ BlockDef::BlockDef(std::string name, int textureIndex, int skyLight, int blockLi
     // std::cout << "Debug: Memory usage for " << this->name << " block: uses " << bit << " bits." << std::endl;
 }
 
+bool BlockDef::Find(std::string itemName) const
+{
+    auto it = std::find(dataItems.begin(), dataItems.end(), itemName);
+    if (it != dataItems.end())
+    {
+        // Found the item
+        return true;
+    }
+    return false;
+}
+
 unsigned int BlockDef::Read(std::string itemName, BlockData* data) const
 {
     auto it = std::find(dataItems.begin(), dataItems.end(), itemName);
@@ -61,7 +72,7 @@ unsigned int BlockDef::Read(std::string itemName, BlockData* data) const
     return 0;
 }
 
-void BlockDef::Write(std::string itemName, BlockData* data, BlockData bits)
+void BlockDef::Write(std::string itemName, BlockData* data, BlockData bits) const
 {
     auto it = std::find(dataItems.begin(), dataItems.end(), itemName);
     if (it != dataItems.end())
@@ -90,5 +101,14 @@ void BlockDef::RandomTick(BehaviorContext ctx) const
     {
         auto b = behaviors.at(i);
         ctx = b->RandomTick(ctx);
+    }
+}
+
+void BlockDef::SmartTick(BehaviorContext ctx) const
+{
+    for (size_t i = 0; i < behaviors.size(); i++)
+    {
+        auto b = behaviors.at(i);
+        ctx = b->SmartTick(ctx);
     }
 }

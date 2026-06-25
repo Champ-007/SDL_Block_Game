@@ -34,7 +34,7 @@ unsigned int DataItem::Read(BlockData* data) const
     return shifted & mask;
 }
 
-void DataItem::Write(BlockData* data, BlockData bits)
+void DataItem::Write(BlockData* data, BlockData bits) const
 {
     // Create a mask the length of the blockdata, with 1s where we want to write
     BlockData lengthMask;
@@ -83,6 +83,7 @@ namespace DataItemRegistry
             }
         }
 
+        std::cout << "Error: typo dataItem registry query.\n";
         return 0;
     }
 
@@ -98,6 +99,8 @@ namespace DataItemRegistry
     void Init()
     {
         RegisterDataItem({"liquidLevel", 2});
+        RegisterDataItem({"foliageReach", 2});
+        RegisterDataItem({"doorOpen", 1});
     }
 
 }

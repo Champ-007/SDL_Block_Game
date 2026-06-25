@@ -4,7 +4,7 @@
 GameRenderer::GameRenderer(SDL_Renderer* _renderer)
 {
     renderer = _renderer;
-    camera = Camera({0, 0}, 4.0f);
+    camera = Camera({0, 0}, 3.0f);
 }
 
 Camera* GameRenderer::GetCamera()
@@ -192,7 +192,7 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
             BlockID block = chunk->GetBlock(i);
             // std::cout << "Debug: Starting chunk render." << std::endl;
             
-            const BlockDef def = BlockRegistry::get(block);
+            const BlockDef& def = BlockRegistry::get(block);
     
             // Get essential data from the object
             vector2 pos_block = {
@@ -336,6 +336,18 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
                     BlockData data = def.Read("liquidLevel", blockData) + 1;
                     v1.position.y += r - (r * 0.25f * static_cast<int>(data));
                     v2.position.y += r - (r * 0.25f * static_cast<int>(data));
+                }
+
+                // Door appearance
+                if (def.Find("doorOpen"))
+                {
+                    BlockData data = chunk->GetBlockData(pos_block.x, pos_block.y);
+                    bool isOpen = def.Read("doorOpen", &data);
+                    if (isOpen)
+                    {
+                        v2.position.x -= r * 0.75f;
+                        v3.position.x -= r * 0.75f;
+                    }
                 }
 
                 int baseIndex = vertices.size();

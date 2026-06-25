@@ -3,6 +3,7 @@
 #include <string>
 #include <cstdint>
 #include <vector>
+#include <iostream>
 
 using DataItemID = uint16_t; // 65k possible unique dataItems
 using BlockData = uint8_t;
@@ -33,7 +34,7 @@ struct DataItem : PrimativeDataItem
     bool operator==(const std::string& other) const;
 
     unsigned int Read(BlockData* data) const; // Reads the DataItem's bits from the blockData
-    void Write(BlockData* data, BlockData bits); // Writes bits to the blockData
+    void Write(BlockData* data, BlockData bits) const; // Writes bits to the blockData
 };
 
 namespace DataItemRegistry

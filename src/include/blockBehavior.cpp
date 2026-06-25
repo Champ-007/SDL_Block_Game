@@ -29,7 +29,7 @@ BehaviorContext FallBehavior::UpdateTick(BehaviorContext ctx)
 
     BlockID other;
     BlockData otherData;
-    int dir = (rand() % 2);
+    int dir = (ctx.chunk->GetRand() % 2);
     if (dir == 0) dir = -1;
 
     // Fall downwards
@@ -70,6 +70,11 @@ BehaviorContext FallBehavior::UpdateTick(BehaviorContext ctx)
 
 }
 BehaviorContext FallBehavior::RandomTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
+BehaviorContext FallBehavior::SmartTick(BehaviorContext ctx)
 {
     // No change
     return ctx;
@@ -119,6 +124,11 @@ BehaviorContext SpreadGrassBehavior::RandomTick(BehaviorContext ctx)
     // No change
     return ctx;
 }
+BehaviorContext SpreadGrassBehavior::SmartTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
 
 std::vector<DataItemID> KillGrassBehavior::Init()
 {
@@ -147,11 +157,16 @@ BehaviorContext KillGrassBehavior::RandomTick(BehaviorContext ctx)
     // No change
     return {ctx.x, ctx.y, BlockRegistry::getIDByName("dirt"), 0, ctx.chunk};
 }
+BehaviorContext KillGrassBehavior::SmartTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
 
 std::vector<DataItemID> SpreadFoliageBehavior::Init()
 {
     return {
-        
+        DataItemRegistry::getIDByName("foliageReach")
     };
 }
 BehaviorContext SpreadFoliageBehavior::UpdateTick(BehaviorContext ctx)
@@ -165,28 +180,40 @@ BehaviorContext SpreadFoliageBehavior::RandomTick(BehaviorContext ctx)
     if (ctx.data == nullptr) return ctx;
     
     BlockID other;
+    BlockData sourceData = *ctx.data;
+    const BlockDef& def = BlockRegistry::get(ctx.block);
+    uint32_t foliageReach = def.Read("foliageReach", &sourceData);
 
-    vector2 offsets[4] = {
-        {0, -1},
-        {-1, 0},
-        {1, 0},
-        {0, 1}
-    };
-
-    bool once = false;
-    for (vector2 offset : offsets)
+    // Only spread if there is reach left in the foliageReach dataItem, so that growth has a hard limit
+    if (foliageReach > 0)
     {
-        offset += {ctx.x, ctx.y};
-        other = ctx.chunk->SafeGetBlock({offset.x, offset.y});
-        if (other == BlockRegistry::getIDByName("air"))
+        BlockData otherData = sourceData;
+        def.Write("foliageReach", &otherData, uint32_t{foliageReach - 1});
+        vector2 offsets[4] = {
+            {0, -1},
+            {-1, 0},
+            {1, 0},
+            {0, 1}
+        };
+    
+        for (vector2 offset : offsets)
         {
-            if (once) std::cout << "Debug: violation. Break; did not work." << std::endl;
-            ctx.chunk->SafeSetBlock({offset.x, offset.y}, ctx.block, 0, UpdateType::defered);
-            once = true;
-            break;
+            offset += {ctx.x, ctx.y};
+            other = ctx.chunk->SafeGetBlock({offset.x, offset.y});
+            if (other == BlockRegistry::getIDByName("air"))
+            {
+                ctx.chunk->SafeSetBlock({offset.x, offset.y}, ctx.block, otherData, UpdateType::defered);
+                break;
+            }
         }
     }
 
+
+    // No change
+    return ctx;
+}
+BehaviorContext SpreadFoliageBehavior::SmartTick(BehaviorContext ctx)
+{
     // No change
     return ctx;
 }
@@ -207,7 +234,7 @@ BehaviorContext LiquidFlowBehavior::UpdateTick(BehaviorContext ctx)
 
     BlockID other;
     BlockData otherData;
-    int dir = (rand() % 2);
+    int dir = (ctx.chunk->GetRand() % 2);
     if (dir == 0) dir = -1; // 1 or -1
 
     BlockData sourceData = *ctx.data;
@@ -246,7 +273,7 @@ BehaviorContext LiquidFlowBehavior::UpdateTick(BehaviorContext ctx)
     }
 
     // Determine how to move horizontally
-    BlockDef def = BlockRegistry::get(ctx.block);
+    const BlockDef& def = BlockRegistry::get(ctx.block);
     unsigned int liquidLevel = def.Read("liquidLevel", ctx.data);
     if (liquidLevel > 0)
     {
@@ -331,6 +358,11 @@ BehaviorContext LiquidFlowBehavior::RandomTick(BehaviorContext ctx)
     // No change
     return ctx;
 }
+BehaviorContext LiquidFlowBehavior::SmartTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
 
 std::vector<DataItemID> LiquidCombineBehavior::Init()
 {
@@ -346,7 +378,7 @@ BehaviorContext LiquidCombineBehavior::UpdateTick(BehaviorContext ctx)
     UpdateType otherType = UpdateType::defered;
     UpdateType blockType = UpdateType::defered;
 
-    BlockDef def = BlockRegistry::get(ctx.block);
+    const BlockDef& def = BlockRegistry::get(ctx.block);
     BlockID other;
     BlockData otherData;
     BlockData sourceData = *ctx.data;
@@ -355,7 +387,7 @@ BehaviorContext LiquidCombineBehavior::UpdateTick(BehaviorContext ctx)
     unsigned int sourceLiquid = def.Read("liquidLevel", ctx.data) + 1;
     unsigned int otherLiquid;
 
-    int dir = (rand() % 2);
+    int dir = (ctx.chunk->GetRand() % 2);
     if (dir == 0) dir = -1;
 
     // Check downwards
@@ -488,6 +520,11 @@ BehaviorContext LiquidCombineBehavior::RandomTick(BehaviorContext ctx)
     // No change
     return ctx;
 }
+BehaviorContext LiquidCombineBehavior::SmartTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
 
 std::vector<DataItemID> LavaToObsidianBehavior::Init()
 {
@@ -539,6 +576,43 @@ BehaviorContext LavaToObsidianBehavior::UpdateTick(BehaviorContext ctx)
 }
 BehaviorContext LavaToObsidianBehavior::RandomTick(BehaviorContext ctx)
 {
+    // No change
+    return ctx;
+}
+BehaviorContext LavaToObsidianBehavior::SmartTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
+
+std::vector<DataItemID> trapdoorBehavior::Init()
+{
+    return {
+        DataItemRegistry::getIDByName("doorOpen")
+    };
+}
+BehaviorContext trapdoorBehavior::UpdateTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
+BehaviorContext trapdoorBehavior::RandomTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
+BehaviorContext trapdoorBehavior::SmartTick(BehaviorContext ctx)
+{
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+
+    BlockData sourceData = *ctx.data;
+    const BlockDef& def = BlockRegistry::get(ctx.block);
+    bool doorOpen = static_cast<bool>(def.Read("doorOpen", &sourceData));
+    doorOpen = !doorOpen;
+    def.Write("doorOpen", &sourceData, doorOpen);
+    ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, sourceData, UpdateType::defered);
+
     // No change
     return ctx;
 }
