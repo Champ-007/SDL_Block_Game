@@ -12,6 +12,8 @@ namespace BlockRegistry
     // Call once at startup to register all block definitions
     void Init();
 
+    size_t size();
+
     // Lookup definition from ID
     const BlockDef& get(BlockID id);
 

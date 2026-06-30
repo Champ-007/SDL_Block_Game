@@ -17,6 +17,7 @@
 #include "figures.hpp"
 #include "vector2.hpp"
 #include "blockRegistry.hpp"
+#include "structures.hpp"
 
 const int LIGHT_DECAY_SKY = 64;
 const int LIGHT_DECAY_BLOCK = 32;

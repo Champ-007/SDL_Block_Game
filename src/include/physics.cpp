@@ -5,6 +5,7 @@ namespace Physics
 {
     void UpdatePlayer(Player& player, ChunkEngine& engine, float dt, const uint8_t* keystates)
     {
+        // dt = std::min(20.0f, dt);
         vector2 collide;
         Collider& collider = player.GetCollider();
 

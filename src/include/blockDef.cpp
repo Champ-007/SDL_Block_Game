@@ -1,7 +1,7 @@
 
 #include "blockDef.hpp"
 
-BlockDef::BlockDef(std::string name, int textureIndex, int skyLight, int blockLight, bool mineable, int mineStrength, bool placeOver, bool isSolid, bool isTransparent, int density, bool isLiquid, std::vector<std::shared_ptr<BlockBehavior>> behaviors)
+BlockDef::BlockDef(std::string name, int textureIndex, int skyLight, int blockLight, bool mineable, int mineStrength, bool placeOver, bool isSolid, bool isTransparent, int density, std::vector<std::shared_ptr<BlockBehavior>> behaviors)
 {
     this->name = std::move(name);
     this->textureIndex = textureIndex;
@@ -13,7 +13,6 @@ BlockDef::BlockDef(std::string name, int textureIndex, int skyLight, int blockLi
     this->isSolid = isSolid;
     this->isTransparent = isTransparent;
     this->density = density;
-    this->isLiquid = isLiquid;
     this->behaviors = behaviors;
     // Init the DataItems
     unsigned int bit = 0;

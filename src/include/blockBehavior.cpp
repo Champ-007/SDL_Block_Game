@@ -80,6 +80,107 @@ BehaviorContext FallBehavior::SmartTick(BehaviorContext ctx)
     return ctx;
 }
 
+std::vector<DataItemID> DirtSoakBehavior::Init()
+{
+    return {
+
+    };
+}
+BehaviorContext DirtSoakBehavior::UpdateTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+
+}
+BehaviorContext DirtSoakBehavior::RandomTick(BehaviorContext ctx)
+{
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
+    vector2 offsets[3] = {
+        {-1, 0},
+        {1,  0},
+        {0, -1}
+    };
+    
+    for (vector2 offset : offsets)
+    {
+        offset += {ctx.x, ctx.y};
+        BlockID other = ctx.chunk->SafeGetBlock({offset.x, offset.y});
+        BlockData otherData = ctx.chunk->SafeGetBlockData({offset.x, offset.y});
+        if (other == BlockRegistry::getIDByName("water"))
+        {
+            const BlockDef& def = BlockRegistry::get(other);
+            unsigned int liquidLevel = def.Read("liquidLevel", &otherData);
+            if (liquidLevel >= 1)
+            {
+                BlockID soilID = BlockRegistry::getIDByName("soil");
+                ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, soilID, 0, UpdateType::defered);
+                return {ctx.x, ctx.y, soilID, ctx.data, ctx.chunk};
+            }
+        }
+    }
+
+    // No change
+    return ctx;
+}
+BehaviorContext DirtSoakBehavior::SmartTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
+
+std::vector<DataItemID> SoilDryOutBehavior::Init()
+{
+    return {
+
+    };
+}
+BehaviorContext SoilDryOutBehavior::UpdateTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+
+}
+BehaviorContext SoilDryOutBehavior::RandomTick(BehaviorContext ctx)
+{
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
+    vector2 offsets[3] = {
+        {-1, 0},
+        {1,  0},
+        {0, -1}
+    };
+
+    bool foundWater = false;
+    
+    for (vector2 offset : offsets)
+    {
+        offset += {ctx.x, ctx.y};
+        BlockID other = ctx.chunk->SafeGetBlock({offset.x, offset.y});
+        if (other == BlockRegistry::getIDByName("water"))
+        {
+            foundWater = true;
+        }
+    }
+
+    if (!foundWater)
+    {
+        BlockID dirtID = BlockRegistry::getIDByName("dirt");
+        ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, dirtID, 0, UpdateType::defered);
+        return {ctx.x, ctx.y, dirtID, ctx.data, ctx.chunk};
+    }
+
+    // No change
+    return ctx;
+}
+BehaviorContext SoilDryOutBehavior::SmartTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+}
+
 std::vector<DataItemID> SpreadGrassBehavior::Init()
 {
     return {
@@ -613,6 +714,53 @@ BehaviorContext trapdoorBehavior::SmartTick(BehaviorContext ctx)
     def.Write("doorOpen", &sourceData, doorOpen);
     ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, sourceData, UpdateType::defered);
 
+    // No change
+    return ctx;
+}
+
+std::vector<DataItemID> sproutGrowthBehavior::Init()
+{
+    return {
+        DataItemRegistry::getIDByName("sproutGrowth"),
+    };
+}
+BehaviorContext sproutGrowthBehavior::UpdateTick(BehaviorContext ctx)
+{
+    // No change
+    return ctx;
+
+}
+BehaviorContext sproutGrowthBehavior::RandomTick(BehaviorContext ctx)
+{
+    // Basic corruption catch
+    if (ctx.data == nullptr) return ctx;
+    
+    BlockID other = ctx.chunk->SafeGetBlock({ctx.x, ctx.y + 1});
+    if (other == BlockRegistry::getIDByName("soil"))
+    {
+        const BlockDef& def = BlockRegistry::get(ctx.block);
+        unsigned int growth = def.Read("sproutGrowth", ctx.data);
+        if (growth < 7)
+        {
+            // increase data item
+            BlockData sourceData = ctx.chunk->SafeGetBlockData({ctx.x, ctx.y});
+            def.Write("sproutGrowth", &sourceData, static_cast<BlockData>(growth + 1));
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y}, ctx.block, sourceData, UpdateType::defered);
+            return ctx;
+        }
+        else if (growth == 7)
+        {
+            // Spread upwards
+            ctx.chunk->SafeSetBlock({ctx.x, ctx.y - 1}, BlockRegistry::getIDByName("wheat"), 0, UpdateType::defered);
+            return ctx;
+        }
+    }
+
+    // No change
+    return ctx;
+}
+BehaviorContext sproutGrowthBehavior::SmartTick(BehaviorContext ctx)
+{
     // No change
     return ctx;
 }

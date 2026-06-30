@@ -4,7 +4,7 @@
 GameRenderer::GameRenderer(SDL_Renderer* _renderer)
 {
     renderer = _renderer;
-    camera = Camera({0, 0}, 3.0f);
+    camera = Camera({0, 0}, 4.0f);
 }
 
 Camera* GameRenderer::GetCamera()
@@ -190,6 +190,7 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
         for (int i = 0; i < CHUNK_LENGTH; i++)
         {
             BlockID block = chunk->GetBlock(i);
+            BlockData blockData = chunk->GetBlockData(i);
             // std::cout << "Debug: Starting chunk render." << std::endl;
             
             const BlockDef& def = BlockRegistry::get(block);
@@ -259,6 +260,13 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
             // block UVs
             int atlas_x = def.textureIndex % 32;
             int atlas_y = floor(def.textureIndex / 32);
+
+            // Sprout growth
+            if (def.Find("sproutGrowth"))
+            {
+                BlockData data = def.Read("sproutGrowth", &blockData);
+                atlas_y += static_cast<int>(data);
+            }
     
             // background UVs
             int background_x = 0;
@@ -330,7 +338,7 @@ void GameRenderer::RenderChunk(std::vector<SDL_Texture*>* textures, Chunk* chunk
                 SDL_Vertex v4 = {{x, y + r}, bottom_left_color, {static_cast<float>(texture_x), static_cast<float>(texture_y + tran_y)}};
                 
                 // Water height level
-                if (def.isLiquid)
+                if (def.Find("liquidLevel"))
                 {
                     BlockData* blockData = chunk->TakeBlockData(pos_block);
                     BlockData data = def.Read("liquidLevel", blockData) + 1;

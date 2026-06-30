@@ -43,6 +43,24 @@ struct FallBehavior : BlockBehavior
     BehaviorContext SmartTick(BehaviorContext ctx);
 };
 
+// Dirt becomes soil when near water
+struct DirtSoakBehavior : BlockBehavior
+{
+    std::vector<DataItemID> Init();
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
+};
+
+// If soil has no water, dries back into dirt
+struct SoilDryOutBehavior : BlockBehavior
+{
+    std::vector<DataItemID> Init();
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
+};
+
 // Grass transforms dirt into more grass
 struct SpreadGrassBehavior : BlockBehavior
 {
@@ -99,6 +117,15 @@ struct LavaToObsidianBehavior : BlockBehavior
 
 // Switches between solid and not solid based on smart updates
 struct trapdoorBehavior : BlockBehavior
+{
+    std::vector<DataItemID> Init();
+    BehaviorContext UpdateTick(BehaviorContext ctx);
+    BehaviorContext RandomTick(BehaviorContext ctx);
+    BehaviorContext SmartTick(BehaviorContext ctx);
+};
+
+// Increases sprout growth data item if above soil
+struct sproutGrowthBehavior : BlockBehavior
 {
     std::vector<DataItemID> Init();
     BehaviorContext UpdateTick(BehaviorContext ctx);

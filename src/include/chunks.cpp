@@ -363,6 +363,7 @@ void Chunk::Generate(ChunkCoord c, int seed)
     if (biome_heat < -0.5) biome = -1;
     if (biome_heat > 0.5) biome = 1;
 
+    // Noise Gen
     for (int y = 0; y < CHUNK_WIDTH; y++)
     {
         for (int x = 0; x < CHUNK_WIDTH; x++)
@@ -393,6 +394,10 @@ void Chunk::Generate(ChunkCoord c, int seed)
                     {
                         blocks[i] = BlockRegistry::getIDByName("twigs");
                         blockData[i] = randData();
+                    }
+                    else if (density2 > -0.2 && density2 < 0.2)
+                    {
+                        blocks[i] = BlockRegistry::getIDByName("wheat");
                     }
                 }
                 else
@@ -442,6 +447,37 @@ void Chunk::Generate(ChunkCoord c, int seed)
             LightUpdateQueue.push(i);
         }
     }
+
+    // Structure Gen
+    bool shouldSpawn = randData() % 2 == 0;
+    shouldSpawn = true;
+    if (shouldSpawn)
+    {
+        // Generate a structure within this chunk
+
+        // Get a random structure
+        const Structure structure = StructureRegistry::getRandom(biome, randData());
+        // std::cout << "Debug: structure name is " << structure.name << "\n";
+        unsigned int x = randData() % (CHUNK_WIDTH - structure.width);
+        unsigned int y = randData() % (CHUNK_WIDTH - structure.height);
+        unsigned int offset_x = 0;
+        unsigned int offset_y = 0;
+
+        for (const auto& block : structure.blocks)
+        {
+            if (block != -1)
+            {
+                SetBlock(x + offset_x, y + offset_y, block);
+            }
+
+            offset_x += 1;
+            if (offset_x >= structure.width)
+            {
+                offset_x = 0;
+                offset_y += 1;
+            }
+        }
+    }
     
 }
 
@@ -452,6 +488,9 @@ void Chunk::GenerateSave(ChunkSave* save)
         // std::cout << "Debug: setting block to " << save->blocks.at(i) << std::endl; 
         blocks.at(save->positions.at(i)) = save->blocks.at(i);
         blockData.at(save->positions.at(i)) = static_cast<int>(save->data.at(i));
+        // if (save->blocks.at(i) < BlockRegistry::size())
+        // {
+        // }
         // std::cout << "Debug: blockData was " << static_cast<int>(save->data.at(i)) << std::endl;
     }
     
@@ -691,6 +730,7 @@ ChunkEngine::ChunkEngine()
     random.seed(world_seed);
     DataItemRegistry::Init();
     BlockRegistry::Init();
+    StructureRegistry::Init();
     // Nevermind!
     // world_seed = 1234;
 }

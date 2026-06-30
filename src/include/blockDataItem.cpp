@@ -101,6 +101,7 @@ namespace DataItemRegistry
         RegisterDataItem({"liquidLevel", 2});
         RegisterDataItem({"foliageReach", 2});
         RegisterDataItem({"doorOpen", 1});
+        RegisterDataItem({"sproutGrowth", 3});
     }
 
 }
